@@ -1618,6 +1618,7 @@ int main(int argc, char *argv[])
     // std::cout << "--envStepTime: " << envStepTime << std::endl;
     std::cout << "--seed: " << simSeed << std::endl;
     std::cout << "--testArg: " << testArg << std::endl;
+    std::cout << "--testArg: " << testArg << std::endl;
 
     RngSeedManager::SetSeed (1);
     RngSeedManager::SetRun (simSeed);
