@@ -1,0 +1,26 @@
+# Ignore these folders
+nested-subdir/
+ns3-gym_mine/
+ns3-gym_test/
+ns3gym/
+subdir/
+
+# (Optional safety: ignore any virtualenvs)
+venv/
+env/
+*/venv/
+*/env/
+
+# Python build artifacts
+__pycache__/
+*.pyc
+*.pyo
+
+# Ignore logs, datasets, intermediate files
+*.csv
+*.log
+*.pcap
+
+# Ignore shared libraries or binaries
+*.so
+*.so.*
