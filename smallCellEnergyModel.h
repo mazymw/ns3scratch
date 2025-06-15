@@ -11,8 +11,7 @@
 #include "ns3/simulator.h"
 #include <map>
 #include <string>
-
-// void LogSinrDuringTransition(uint32_t sbsNodeId, std::string label, ns3::Time endTime);
+#include <fstream>  // ✅ For CSV writing
 
 namespace ns3 {
 
@@ -60,36 +59,36 @@ public:
       m_transitioning(false),
       m_transitionEndTime(Seconds(0))
   {
-    // Initialize power consumption maps (total power, tx power)
     m_totalPowerMap[ACTIVE] = 20.7;    
     m_totalPowerMap[SM1] = 8.22;     
     m_totalPowerMap[SM2] = 3.55;      
     m_totalPowerMap[SM3] = 3.36;        
     
-    // Transmission power for each state
-    m_txPowerMap[ACTIVE] = m_activeTxPower;  // Uses attribute value
+    m_txPowerMap[ACTIVE] = m_activeTxPower;
     m_txPowerMap[SM1] = 0;
     m_txPowerMap[SM2] = 0;
     m_txPowerMap[SM3] = 0;
 
-    // State transition delays (keeping your original values)
     m_activationDelay[SM1] = Seconds(0.00355);
     m_activationDelay[SM2] = Seconds(0.05);
     m_activationDelay[SM3] = Seconds(0.5);
     
-    // Initialize traced values
     m_totalPower = m_totalPowerMap[ACTIVE];
     m_txPower = m_txPowerMap[ACTIVE];
     m_energyConsumedTrace = 0.0;
-    m_activeEnteredTime = Seconds(0);
+    m_activeEnteredTime = Simulator::Now();
+    m_lastStateChangeTime = Simulator::Now();
+
+    for (int i = ACTIVE; i <= SM3; ++i) {
+        m_stateTimeAccumulated[(SmallCellState)i] = 0.0;
+    }
   }
 
   void SetNodeId(uint32_t id) { m_nodeId = id; }
   uint32_t GetNodeId() const { return m_nodeId; }
 
-void SetState(SmallCellState state)
-{
-    // If already transitioning, ignore further state change requests
+  void SetState(SmallCellState state)
+  {
     if (m_transitioning) {
         std::cout << Simulator::Now().GetSeconds() << "s: [SBS " << m_nodeId
                   << "] Ignoring SetState(" << StateToString(state)
@@ -97,8 +96,7 @@ void SetState(SmallCellState state)
         return;
     }
 
-    // Prevent switching out of ACTIVE before 1.5s after transition to ACTIVE
-    const double minActiveDuration = 0.1; // seconds
+    const double minActiveDuration = 0.02;
     if (m_currentState == ACTIVE && state != ACTIVE) {
         Time now = Simulator::Now();
         Time timeInActive = now - m_activeEnteredTime;
@@ -113,6 +111,13 @@ void SetState(SmallCellState state)
         }
     }
 
+    Time now = Simulator::Now();
+    double duration = (now - m_lastStateChangeTime).GetSeconds();
+    double energyUsed = m_totalPower * duration;
+    m_energyConsumed += energyUsed;
+    m_stateTimeAccumulated[m_currentState] += duration;
+    m_lastStateChangeTime = now;
+
     if (m_currentState != state) {
         std::cout << Simulator::Now().GetSeconds() << "s: [SBS " << m_nodeId
                   << "] Changing state from "
@@ -123,12 +128,8 @@ void SetState(SmallCellState state)
                       << m_activationDelay[m_currentState].GetSeconds()
                       << "s before entering ACTIVE." << std::endl;
 
-            // === Added SINR Logging ===
-            // Time transitionEnd = Simulator::Now() + m_activationDelay[m_currentState];
-            // Simulator::ScheduleNow(&LogSinrDuringTransition, m_nodeId, "During Transition", transitionEnd + MilliSeconds(2));
-
             m_transitioning = true;
-            m_transitionEndTime = Simulator::Now() + m_activationDelay[m_currentState];
+            m_transitionEndTime = now + m_activationDelay[m_currentState];
             Simulator::Schedule(m_activationDelay[m_currentState],
                                 &SmallCellEnergyModel::FinishTransition, this);
         } else {
@@ -139,48 +140,47 @@ void SetState(SmallCellState state)
             if (state == ACTIVE) {
                 m_activeEnteredTime = Simulator::Now();
             }
+            // ✅ Count state entry
+            // m_stateEntryCount[state]++;
         }
     }
-}
-
+  }
 
   void FinishTransition()
   {
       std::cout << Simulator::Now().GetSeconds() << "s: Finished transition, now ACTIVE." << std::endl;
+
+      // ✅ Energy update after activation delay completes
+      Time now = Simulator::Now();
+      double duration = (now - m_lastStateChangeTime).GetSeconds();
+      double energyUsed = m_totalPower * duration;
+      m_energyConsumed += energyUsed;
+      m_stateTimeAccumulated[m_currentState] += duration;
+      m_lastStateChangeTime = now;
+
       m_currentState = ACTIVE;
       UpdatePowerValues();
       m_transitioning = false;
       m_transitionEndTime = Seconds(0);
-      // Now SBS is truly ACTIVE, record the time
       m_activeEnteredTime = Simulator::Now();
-}
 
-  SmallCellState GetState() const
-  {
-    return m_currentState;
+      // m_stateEntryCount[ACTIVE]++;
   }
 
-  // Returns true if in the middle of a transition to ACTIVE
-  bool IsTransitioning() const
+    void FlushFinalState()
   {
-    return m_transitioning;
+    Time now = Simulator::Now();
+    double duration = (now - m_lastStateChangeTime).GetSeconds();
+    m_energyConsumed += m_totalPower * duration;
+    m_stateTimeAccumulated[m_currentState] += duration;
+    m_lastStateChangeTime = now;
   }
 
-  // Returns the simulation time when the current transition will finish
-  Time GetTransitionEndTime() const
-  {
-    return m_transitionEndTime;
-  }
-
-  double GetTotalPowerConsumption() const
-  {
-    return m_totalPower;
-  }
-
-  double GetTransmissionPower() const
-  {
-    return m_txPower;
-  }
+  SmallCellState GetState() const { return m_currentState; }
+  bool IsTransitioning() const { return m_transitioning; }
+  Time GetTransitionEndTime() const { return m_transitionEndTime; }
+  double GetTotalPowerConsumption() const { return m_totalPower; }
+  double GetTransmissionPower() const { return m_txPower; }
 
   void UpdateEnergyConsumption(Time duration)
   {
@@ -188,50 +188,34 @@ void SetState(SmallCellState state)
     m_remainingEnergy -= energyUsed;
     m_energyConsumed += energyUsed;
     m_energyConsumedTrace = m_energyConsumed;
-
-    if (m_remainingEnergy < 0)
-    {
+    if (m_remainingEnergy < 0) {
       m_remainingEnergy = 0;
       HandleEnergyDepletion();
     }
-
-    NS_LOG_INFO("[" << Simulator::Now().GetSeconds() << "s] State: " << StateToString(m_currentState)
-                  << ", Total Power: " << m_totalPower << "W"
-                  << ", Tx Power: " << m_txPower << "W"
-                  << ", Energy Left: " << m_remainingEnergy << "J");
   }
 
-  // === DeviceEnergyModel overrides ===
-  virtual void SetEnergySource(Ptr<EnergySource> source) override
+  virtual void SetEnergySource(Ptr<EnergySource> source) override { m_energySource = source; }
+  virtual double GetTotalEnergyConsumption() const override { return m_energyConsumed; }
+  virtual void ChangeState(int newState) override { SetState(static_cast<SmallCellState>(newState)); }
+  virtual void HandleEnergyDepletion() override { SetState(SM3); }
+  virtual void HandleEnergyRecharged() override { SetState(ACTIVE); }
+  virtual void HandleEnergyChanged() override {}
+
+  // Export state counts to CSV for plotting
+  void ExportStateTimeToCsv(uint32_t episode)
   {
-    m_energySource = source;
+      std::ofstream file("sbs_state_times.csv", std::ios::app);
+      file << episode << "," << m_nodeId;
+      for (int i = ACTIVE; i <= SM3; ++i)
+          file << "," << m_stateTimeAccumulated[(SmallCellState)i];
+      file << std::endl;
+      file.close();
   }
 
-  virtual double GetTotalEnergyConsumption() const override
+  void ResetStateTime()
   {
-    return m_energyConsumed;
-  }
-
-  virtual void ChangeState(int newState) override
-  {
-    SetState(static_cast<SmallCellState>(newState));
-  }
-
-  virtual void HandleEnergyDepletion() override
-  {
-    NS_LOG_WARN("Energy depleted at " << Simulator::Now().GetSeconds() << "s");
-    SetState(SM3);  // Go to deepest sleep state when depleted
-  }
-
-  virtual void HandleEnergyRecharged() override
-  {
-    NS_LOG_INFO("Energy recharged at " << Simulator::Now().GetSeconds() << "s");
-    SetState(ACTIVE);
-  }
-
-  virtual void HandleEnergyChanged() override
-  {
-    NS_LOG_DEBUG("Energy level changed at " << Simulator::Now().GetSeconds() << "s");
+      for (int i = ACTIVE; i <= SM3; ++i)
+          m_stateTimeAccumulated[(SmallCellState)i] = 0.0;
   }
 
 private:
@@ -257,21 +241,22 @@ private:
   std::map<SmallCellState, double> m_totalPowerMap;
   std::map<SmallCellState, double> m_txPowerMap;
   std::map<SmallCellState, Time> m_activationDelay;
-  
-  // Member variables
+
   double m_remainingEnergy;
-  double m_energyConsumed;          // Regular double for internal tracking
+  double m_energyConsumed;
   double m_activeTxPower;
   uint32_t m_nodeId;
-  TracedValue<double> m_totalPower; // Traced value for total power
-  TracedValue<double> m_txPower;    // Traced value for transmission power
-  TracedValue<double> m_energyConsumedTrace; // Traced value for energy consumed
+  TracedValue<double> m_totalPower;
+  TracedValue<double> m_txPower;
+  TracedValue<double> m_energyConsumedTrace;
   Ptr<EnergySource> m_energySource;
 
-  // --- New transition state variables ---
   bool m_transitioning;
   Time m_transitionEndTime;
   Time m_activeEnteredTime;
+  Time m_lastStateChangeTime;
+
+  std::map<SmallCellState, double> m_stateTimeAccumulated;
 };
 
 } // namespace ns3

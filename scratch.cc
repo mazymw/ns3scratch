@@ -362,12 +362,12 @@ void NotifyHandoverEndOkUe(std::string context, uint64_t imsi,
     });
 }
 
-void UpdateEnergy(Ptr<SmallCellEnergyModel> model)
-{
-  Time interval = Seconds(1); // or change as needed
-  model->UpdateEnergyConsumption(interval);
-  Simulator::Schedule(interval, &UpdateEnergy, model);
-}
+// void UpdateEnergy(Ptr<SmallCellEnergyModel> model)
+// {
+//   Time interval = Seconds(1); // or change as needed
+//   model->UpdateEnergyConsumption(interval);
+//   Simulator::Schedule(interval, &UpdateEnergy, model);
+// }
 
 // void
 // NotifyHandoverEndOkUe(std::string context, uint64_t imsi, uint16_t cellId, uint16_t rnti)
@@ -1286,6 +1286,7 @@ private:
     std::map<uint32_t, SmallCellEnergyModel::SmallCellState> m_lastStates;
     double m_lastAvgMacroSinr;
     std::map<uint32_t, double> m_lastSbsSinrAverage;
+    double m_globalAvgSINR = 0.0;
 
     void CollectEnvData();
 };
@@ -1338,14 +1339,21 @@ Ptr<OpenGymSpace> LteGymEnv::GetActionSpace()
 Ptr<OpenGymDataContainer> LteGymEnv::GetObservation()
 {
     std::cout << "GetObservation() called" << std::endl;
-    CollectEnvData();
+
+    CollectEnvData();  // Collect fresh data every step
+
     std::vector<double> obs;
     for (const auto& [sbsId, model] : m_energyModels) {
-        std::cout << "Ac" << (double)m_activeUeCounts[sbsId] << std::endl;
         obs.push_back((double)m_activeUeCounts[sbsId]);
         obs.push_back((double)model->GetState());
-        obs.push_back(m_lastEnergyConsumptions[sbsId]);
+        obs.push_back(m_lastEnergyConsumptions[sbsId]);  // Instantaneous power
+        obs.push_back(m_globalAvgSINR);
+        obs.push_back(model->IsTransitioning() ? 1.0 : 0.0);
     }
+
+    // Add global SINR as final part of observation:
+   
+
     Ptr<OpenGymBoxContainer<double>> container = CreateObject<OpenGymBoxContainer<double>>(std::vector<uint32_t>{(uint32_t)obs.size()});
     container->SetData(obs);
     return container;
@@ -1354,64 +1362,55 @@ Ptr<OpenGymDataContainer> LteGymEnv::GetObservation()
 void LteGymEnv::CollectEnvData()
 {
     Time now = Simulator::Now();
-    double simTimeHours = fmod((now.GetSeconds() /  m_simulationTime) * 24.0, 24.0);
+    double simTimeHours = fmod((now.GetSeconds() / m_simulationTime) * 24.0, 24.0);
+
     SampleSbsSinr(*globalEnbDevs, *globalUeDevs, 3.5);
     SampleMacroSinr(*globalUeDevs, /*macroNodeId=*/3, 3.5);
+
     std::cout << "[LOG] SimTime: " << now.GetSeconds()
               << "s  (Hour of day: " << simTimeHours << ")" << std::endl;
 
-    // SampleSbsSinr(*globalEnbDevs, *globalUeDevs, 3.5);
+    uint32_t totalActiveUEs = 0;
+    double totalSINRWeightedSum = 0.0;
 
     for (const auto& [sbsId, model] : m_energyModels) {
-        // Time interval = now - m_lastUpdateTimes[sbsId];
-        // m_lastUpdateTimes[sbsId] = now;
 
-        // === Active UEs ===
         uint32_t activeUes = 0;
         std::cout << "  [SBS " << sbsId << "] UEs mapped: ";
-                if (sbsToUeMap.find(sbsId) != sbsToUeMap.end()) {
-                    for (uint64_t imsi : sbsToUeMap[sbsId]) {
-                        std::cout << imsi << (ueActivityMap[imsi] ? "(active)" : "(inactive)") << " ";
-                        if (ueActivityMap[imsi]) {
-                            activeUes++;
-                        }
-                    }
-                } else {
-                    std::cout << "None";
+        if (sbsToUeMap.find(sbsId) != sbsToUeMap.end()) {
+            for (uint64_t imsi : sbsToUeMap[sbsId]) {
+                std::cout << imsi << (ueActivityMap[imsi] ? "(active)" : "(inactive)") << " ";
+                if (ueActivityMap[imsi]) {
+                    activeUes++;
                 }
-                std::cout << "| Active UEs: " << activeUes << std::endl;
-                m_activeUeCounts[sbsId] = activeUes;
+            }
+        } else {
+            std::cout << "None";
+        }
+        std::cout << "| Active UEs: " << activeUes << std::endl;
+        m_activeUeCounts[sbsId] = activeUes;
 
-        // === Energy ===
-        double energy = model->GetTotalEnergyConsumption();
-        m_lastEnergyConsumptions[sbsId] = energy;
+        // Energy: use instantaneous power
+        double power = model->GetTotalPowerConsumption();
+        m_lastEnergyConsumptions[sbsId] = power;
 
-        // === SINR Average ===
+        // SINR for this SBS
         double sinrAvg = 0.0;
         if (sbsSinrAverage.count(sbsId)) {
             sinrAvg = sbsSinrAverage[sbsId];
         }
         std::cout << "  [SBS " << sbsId << "] Avg SINR this step: " << sinrAvg << " dB" << std::endl;
-        // double sinrAvg = 0.0;
-        // if (sbsSinrSamples.count(sbsId) && !sbsSinrSamples[sbsId].empty()) {
-        //     const auto& samples = sbsSinrSamples[sbsId];
 
-        //     // std::cout << "  [SBS " << sbsId << "] SINR Samples: ";
-        //     for (size_t i = 0; i < samples.size(); ++i) {
-        //         // std::cout << samples[i] << " ";
-        //     }
-        //     std::cout << std::endl;
-
-        //     sinrAvg = std::accumulate(samples.begin(), samples.end(), 0.0) / samples.size();
-        // }
-        // std::cout << "  [SBS " << sbsId << "] Avg SINR over 0.2s: " << sinrAvg << " dB" << std::endl;
+        // === Accumulate for global SINR calculation ===
+        totalActiveUEs += activeUes;
+        totalSINRWeightedSum += sinrAvg * activeUes;
     }
 
-    // === Clear SINR samples (reset buffer for next window)
-    // sbsSinrAverage.clear();
-
-    // === Re-schedule SINR sampling for next 0.2s window
-    // Simulator::Schedule(Seconds(0.0), &StartSinrSampling, Seconds(0.2));
+    // Compute global average SINR across all active UEs:
+    if (totalActiveUEs > 0)
+        m_globalAvgSINR = totalSINRWeightedSum / totalActiveUEs;
+    else
+        m_globalAvgSINR = 0.0;
 }
 
 
@@ -1535,17 +1534,19 @@ std::string LteGymEnv::GetExtraInfo()
         totalEnergy += model->GetTotalEnergyConsumption();
     }
 
-    // === Average SBS SINR ===
+    // === Global UE-Weighted SINR calculation ===
     double totalSbsSinr = 0.0;
-    uint32_t count = 0;
+    uint32_t totalUEs = 0;
+
     for (const auto& [sbsId, sinr] : m_lastSbsSinrAverage)
     {
-        totalSbsSinr += sinr;
-        count++;
+        uint32_t activeUes = m_activeUeCounts[sbsId];  // <-- reuse the latest active UE count per SBS
+        totalSbsSinr += sinr * activeUes;
+        totalUEs += activeUes;
     }
-    double avgSbsSinr = (count > 0) ? (totalSbsSinr / count) : 0.0;
 
-    // === Macro SINR ===
+    double avgSbsSinr = (totalUEs > 0) ? (totalSbsSinr / totalUEs) : 0.0;
+
     double avgMacroSinr = m_lastAvgMacroSinr;
 
     // === Pack everything into ExtraInfo string ===
@@ -1764,7 +1765,7 @@ int main(int argc, char *argv[])
 
         scEnergyModel->SetNodeId(nodeId);
         
-        Simulator::Schedule(Seconds(1.0), &UpdateEnergy, scEnergyModel);
+        // Simulator::Schedule(Seconds(1.0), &UpdateEnergy, scEnergyModel);
     }
 
 
@@ -1993,6 +1994,10 @@ int main(int argc, char *argv[])
     std::cout << "Simulation stop";
 
     openGym->NotifySimulationEnd();
+    for (const auto& [sbsId, model] : sbsEnergyModels)
+    {
+        model->FlushFinalState();
+    }
     Simulator::Destroy ();
 
     // Ptr<LteGymEnv> gymEnv = CreateObject<LteGymEnv>(sbsNodes, energyModels, simulationTime);
@@ -2007,8 +2012,12 @@ int main(int argc, char *argv[])
     // gymInterface->NotifySimulationEnd();
     // Simulator::Destroy();
 
-    monitor->CheckForLostPackets();
-    monitor->SerializeToXmlFile("flowmon-results.xml", true, true); 
+    for (const auto& [sbsId, model] : sbsEnergyModels)
+    {
+        model->ExportStateTimeToCsv(1);
+    }
+    // monitor->CheckForLostPackets();
+    // monitor->SerializeToXmlFile("flowmon-results.xml", true, true); 
 
 
     return 0;
