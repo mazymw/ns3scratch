@@ -624,7 +624,7 @@ void UpdateUeActivity(uint64_t imsi, double simulationTime)
     // Capture 'rand' in the lambda capture list
     Simulator::Schedule(Seconds(nextCheck), [imsi, simulationTime, rand]() {
         double now = Simulator::Now().GetSeconds();
-        double simTimeHours = fmod((now / simulationTime) * 24.0, 24.0);
+        double simTimeHours = (now / simulationTime) * 24.0;
         // std::cout << "SimTime: " << now << "s  (Hour of day: " << simTimeHours << ")" << std::endl;
         double activeProbability;
         if (simTimeHours >= 0 && simTimeHours < 6) activeProbability = 0.1;
@@ -1362,7 +1362,7 @@ Ptr<OpenGymDataContainer> LteGymEnv::GetObservation()
 void LteGymEnv::CollectEnvData()
 {
     Time now = Simulator::Now();
-    double simTimeHours = fmod((now.GetSeconds() / m_simulationTime) * 24.0, 24.0);
+    double simTimeHours = (now.GetSeconds() / m_simulationTime) * 24.0;
 
     SampleSbsSinr(*globalEnbDevs, *globalUeDevs, 3.5);
     SampleMacroSinr(*globalUeDevs, /*macroNodeId=*/3, 3.5);

@@ -1,3 +1,4 @@
+
 import numpy as np
 import random
 from collections import deque
@@ -5,10 +6,11 @@ import tensorflow as tf
 from tensorflow import keras
 from ns3gym import ns3env
 import matplotlib.pyplot as plt
+import os
 
 # Hyperparameters
 BATCH_SIZE = 64
-TARGET_UPDATE_FREQ = 100  # Hard copy target weights every N replay calls
+TARGET_UPDATE_FREQ = 100
 MEM_SIZE = 30000
 EPISODES = 100
 MAX_STEPS = 1000
@@ -16,7 +18,7 @@ N_AGENTS = 3
 STATE_DIM_PER_AGENT = 5
 ACTION_DIM = 4
 
-# === Environment parameters ===
+# Environment parameters
 NUM_UES = 30
 SIM_TIME = 10
 PACKET_INTERVAL = 0.05
@@ -32,8 +34,8 @@ class FastDDQNAgent:
         self.gamma = 0.98
         self.epsilon = 1.0
         self.epsilon_min = 0.05
-        self.epsilon_decay =  0.99996946 # Decay rate for epsilon
-        self.lr = 	0.0005
+        self.epsilon_decay = 0.99996946
+        self.lr = 0.0005
 
         self.model = self._build_model()
         self.target_model = self._build_model()
@@ -57,10 +59,23 @@ class FastDDQNAgent:
         self.memory.append((state, int(action), reward, next_state, done))
 
     def act(self, state):
+        is_transitioning = state[-1]  # last dim in your state
+        if is_transitioning:
+            valid_actions = [int(state[1])]  # only allow current state action
+        else:
+            valid_actions = list(range(self.action_size))
+            
         if np.random.rand() < self.epsilon:
-            return random.randrange(self.action_size)
-        q_values = self.model.predict(state[np.newaxis], verbose=0)
-        return np.argmax(q_values[0])
+            return random.choice(valid_actions)
+
+        q_values = self.model.predict(state[np.newaxis], verbose=0)[0]
+        
+        # Apply mask to q_values
+        masked_q = np.full_like(q_values, -np.inf)
+        for a in valid_actions:
+            masked_q[a] = q_values[a]
+
+        return np.argmax(masked_q)
 
     def replay(self):
         if len(self.memory) < BATCH_SIZE:
@@ -72,7 +87,6 @@ class FastDDQNAgent:
         next_states = np.array([ns for _, _, _, ns, _ in minibatch])
         dones = np.array([d for _, _, _, _, d in minibatch])
 
-        # Vectorized Double DQN update
         q_values = self.model.predict(states, verbose=0)
         next_q_values = self.model.predict(next_states, verbose=0)
         next_target_q_values = self.target_model.predict(next_states, verbose=0)
@@ -88,16 +102,32 @@ class FastDDQNAgent:
         self.loss_history.append(float(loss))
         self.train_steps += 1
 
-        # Hard update target network every N steps
         if self.train_steps % TARGET_UPDATE_FREQ == 0:
             self.update_target_network()
 
-        # Epsilon decay
         if self.epsilon > self.epsilon_min:
             self.epsilon *= self.epsilon_decay
         return float(loss)
 
-# ---- Multi-Agent Wrapper ----
+    # === FULL SAVE ===
+    def save(self, path_prefix):
+        self.model.save(f"{path_prefix}_model.h5")
+        self.target_model.save(f"{path_prefix}_target_model.h5")
+        state = {
+            "epsilon": self.epsilon,
+            "train_steps": self.train_steps
+        }
+        np.save(f"{path_prefix}_meta.npy", state)
+
+    def load(self, path_prefix):
+        self.model = keras.models.load_model(f"{path_prefix}_model.h5")
+        self.target_model = keras.models.load_model(f"{path_prefix}_target_model.h5")
+        state = np.load(f"{path_prefix}_meta.npy", allow_pickle=True).item()
+        self.epsilon = state["epsilon"]
+        self.train_steps = state["train_steps"]
+        self.update_target_network()
+
+
 class MultiAgentWrapper:
     def __init__(self, n_agents, state_dim_per_agent, action_dim):
         self.n_agents = n_agents
@@ -106,11 +136,9 @@ class MultiAgentWrapper:
         self.agents = [FastDDQNAgent(state_dim_per_agent, action_dim, i) for i in range(n_agents)]
 
     def split_obs(self, obs):
-        # Returns a list: each agent's state slice
         return [obs[i*self.state_dim_per_agent:(i+1)*self.state_dim_per_agent] for i in range(self.n_agents)]
 
     def act(self, agent_states):
-        # Returns a list of actions, one per agent
         return [agent.act(agent_states[i]) for i, agent in enumerate(self.agents)]
 
     def remember(self, agent_states, actions, rewards, next_agent_states, done):
@@ -118,26 +146,39 @@ class MultiAgentWrapper:
             agent.remember(agent_states[i], actions[i], rewards[i], next_agent_states[i], done)
 
     def replay(self):
-        # Replay every step for all agents
         for agent in self.agents:
             agent.replay()
+
+    def save_all(self, base_path="agent"):
+        for i, agent in enumerate(self.agents):
+            agent.save(f"{base_path}_{i}")
+
+    def load_all(self, base_path="agent"):
+        for i, agent in enumerate(self.agents):
+            agent.load(f"{base_path}_{i}")
 
     @property
     def epsilons(self):
         return [a.epsilon for a in self.agents]
 
-# ---- Main Training Loop ----
 
 if __name__ == "__main__":
     env = ns3env.Ns3Env(port=5555, stepTime=0.01, startSim=True, simSeed=1)
     wrapper = MultiAgentWrapper(N_AGENTS, STATE_DIM_PER_AGENT, ACTION_DIM)
-    rewards_history = []
-    avg_rewards_per_episode = []
+
+    # === Resume control ===
+    RESUME = False
+    if RESUME and all(os.path.exists(f"trained_ddqn_agent_{i}_model.h5") for i in range(N_AGENTS)):
+        wrapper.load_all("trained_ddqn_agent")
+        print("✅ Successfully loaded previous model, epsilon and steps!")
+    else:
+        print("🚀 Training from scratch...")
+
+    rewards_history, avg_rewards_per_episode = [], []
     step_rewards = []
     total_energy_per_episode = []
     avg_sbs_sinr_per_episode = []
     avg_macro_sinr_per_episode = []
-
 
     print("==== Fast Multi-Agent DDQN Training Start ====")
     for ep in range(1, EPISODES+1):
@@ -147,78 +188,59 @@ if __name__ == "__main__":
         episode_rewards = np.zeros(N_AGENTS)
         step_count = 0
         current_episode_energy = 0.0
-        sbs_sinr_sum = 0.0
-        macro_sinr_sum = 0.0
-        sinr_step_count = 0
+        sbs_sinr_sum, macro_sinr_sum, sinr_step_count = 0.0, 0.0, 0
+
         while not done and step_count < MAX_STEPS:
             print("--------------------")
             print(f"Step {step_count+1} (Episode {ep})")
             print("--------------------")
             actions = wrapper.act(agent_states)
             next_obs, reward, done, info = env.step(np.array(actions, dtype=np.uint32))
-            # Parse ExtraInfo string
             info_str = info if isinstance(info, str) else info[0]
             info_parts = dict(item.split("=") for item in info_str.split(";"))
-
-            # Energy parsing
             energy_value = float(info_parts.get("total_energy", 0.0))
             current_episode_energy = energy_value
-
-            # SINR parsing
             sbs_sinr_value = float(info_parts.get("avg_sbs_sinr", 0.0))
             macro_sinr_value = float(info_parts.get("macro_sinr", 0.0))
-
-            # Accumulate for this episode
             sbs_sinr_sum += sbs_sinr_value
             macro_sinr_sum += macro_sinr_value
             sinr_step_count += 1
 
-            if isinstance(reward, (float, int)):
-                total_step_reward = reward * N_AGENTS
-            else:
-                total_step_reward = sum(reward)
-
+            total_step_reward = reward * N_AGENTS if isinstance(reward, (float, int)) else sum(reward)
             step_rewards.append(total_step_reward)
-
             print(f"Step result: next_obs={next_obs}, reward={reward}, done={done}, info={info}")
-            if isinstance(reward, (float, int)):
-                rewards = [reward] * N_AGENTS
-            else:
-                rewards = list(reward) if hasattr(reward, '__len__') else [reward]*N_AGENTS
+
+            rewards = [reward] * N_AGENTS if isinstance(reward, (float, int)) else list(reward)
             next_agent_states = wrapper.split_obs(next_obs)
             wrapper.remember(agent_states, actions, rewards, next_agent_states, done)
-            wrapper.replay()  # <-- Replay every step
+            wrapper.replay()
             agent_states = next_agent_states
             episode_rewards += rewards
             step_count += 1
+
         print(f"Episode {ep}: Reward: {episode_rewards} | Epsilon: {[round(e,2) for e in wrapper.epsilons]}")
-        rewards_history.append(episode_rewards)
         avg_reward = np.mean(episode_rewards)
+        rewards_history.append(episode_rewards)
         avg_rewards_per_episode.append(avg_reward)
         total_energy_per_episode.append(current_episode_energy)
         avg_sbs_sinr_per_episode.append(sbs_sinr_sum / sinr_step_count)
         avg_macro_sinr_per_episode.append(macro_sinr_sum / sinr_step_count)
-        
+
         print(f"Episode {ep}: Reward: {episode_rewards} | Epsilon: {[round(e,2) for e in wrapper.epsilons]}")
-        # Save model checkpoints every 100 episodes (optional)
+
         if ep % 100 == 0:
-            for i, agent in enumerate(wrapper.agents):
-                agent.model.save(f"fast_ddqn_agent_{i}_ep{ep}.h5")
+            wrapper.save_all("trained_ddqn_agent")
+            print("Saved model snapshot at episode", ep)
+
     env.close()
+    wrapper.save_all("trained_ddqn_agent")
+    print(" Final model saved.")
 
-
-    for i, agent in enumerate(wrapper.agents):
-        agent.model.save(f"trained_ddqn_agent_{i}_exp10.h5")
-
-
-     # === EE Calculation ===
     packets_per_ue = SIM_TIME / PACKET_INTERVAL
     total_packets = packets_per_ue * NUM_UES
-    total_bits = total_packets * PACKET_SIZE_BYTES * 8  # bits
-
+    total_bits = total_packets * PACKET_SIZE_BYTES * 8
     ee_per_episode = [total_bits / energy for energy in total_energy_per_episode]
 
-    # === EE Plot ===
     plt.figure(figsize=(10,6))
     plt.plot(range(1, len(ee_per_episode)+1), ee_per_episode, marker='o')
     plt.xlabel("Episode")
@@ -239,7 +261,6 @@ if __name__ == "__main__":
     plt.savefig("sinr_per_episode.png")
     plt.show()
 
-
     plt.figure(figsize=(10, 5))
     plt.plot(step_rewards, label="Reward per Step")
     plt.xlabel("Step")
@@ -248,7 +269,7 @@ if __name__ == "__main__":
     plt.grid(True)
     plt.legend()
     plt.tight_layout()
-    plt.savefig("reward_per_step.png")  # ✅ Save to file
+    plt.savefig("reward_per_step.png")
     plt.show()
 
     plt.figure(figsize=(10, 6))
@@ -259,5 +280,5 @@ if __name__ == "__main__":
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
-    plt.savefig("avg_reward_per_episode.png")  # ✅ Save to file
+    plt.savefig("avg_reward_per_episode.png")
     plt.show()
