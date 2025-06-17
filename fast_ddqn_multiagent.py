@@ -12,7 +12,7 @@ import os
 BATCH_SIZE = 64
 TARGET_UPDATE_FREQ = 100
 MEM_SIZE = 30000
-EPISODES = 100
+EPISODES = 50
 MAX_STEPS = 1000
 N_AGENTS = 3
 STATE_DIM_PER_AGENT = 5
@@ -34,7 +34,7 @@ class FastDDQNAgent:
         self.gamma = 0.98
         self.epsilon = 1.0
         self.epsilon_min = 0.05
-        self.epsilon_decay = 0.99996946
+        self.epsilon_decay = 0.99994
         self.lr = 0.0005
 
         self.model = self._build_model()

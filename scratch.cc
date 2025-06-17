@@ -1289,6 +1289,8 @@ private:
     double m_globalAvgSINR = 0.0;
 
     void CollectEnvData();
+    double ScalePower(double power);
+    double ScaleGlobalSinr(double sinrDb);
 };
 
 LteGymEnv::LteGymEnv(const std::vector<Ptr<Node>>& sbsNodes,
@@ -1364,6 +1366,7 @@ void LteGymEnv::CollectEnvData()
     Time now = Simulator::Now();
     double simTimeHours = (now.GetSeconds() / m_simulationTime) * 24.0;
 
+    // Update SINR sampling first
     SampleSbsSinr(*globalEnbDevs, *globalUeDevs, 3.5);
     SampleMacroSinr(*globalUeDevs, /*macroNodeId=*/3, 3.5);
 
@@ -1373,8 +1376,9 @@ void LteGymEnv::CollectEnvData()
     uint32_t totalActiveUEs = 0;
     double totalSINRWeightedSum = 0.0;
 
-    for (const auto& [sbsId, model] : m_energyModels) {
-
+    // === Process SBS ===
+    for (const auto& [sbsId, model] : m_energyModels) 
+    {
         uint32_t activeUes = 0;
         std::cout << "  [SBS " << sbsId << "] UEs mapped: ";
         if (sbsToUeMap.find(sbsId) != sbsToUeMap.end()) {
@@ -1388,83 +1392,160 @@ void LteGymEnv::CollectEnvData()
             std::cout << "None";
         }
         std::cout << "| Active UEs: " << activeUes << std::endl;
+
         m_activeUeCounts[sbsId] = activeUes;
 
-        // Energy: use instantaneous power
         double power = model->GetTotalPowerConsumption();
         m_lastEnergyConsumptions[sbsId] = power;
 
-        // SINR for this SBS
-        double sinrAvg = 0.0;
-        if (sbsSinrAverage.count(sbsId)) {
-            sinrAvg = sbsSinrAverage[sbsId];
-        }
+        double sinrAvg = (sbsSinrAverage.count(sbsId)) ? sbsSinrAverage[sbsId] : 0.0;
         std::cout << "  [SBS " << sbsId << "] Avg SINR this step: " << sinrAvg << " dB" << std::endl;
 
-        // === Accumulate for global SINR calculation ===
         totalActiveUEs += activeUes;
         totalSINRWeightedSum += sinrAvg * activeUes;
     }
 
-    // Compute global average SINR across all active UEs:
+    // === Process Macro ===
+    uint32_t macroActiveUEs = 0;
+    for (uint32_t i = 0; i < globalUeDevs->GetN(); ++i) 
+    {
+        Ptr<LteUeNetDevice> ueDev = globalUeDevs->Get(i)->GetObject<LteUeNetDevice>();
+        uint64_t imsi = ueDev->GetImsi();
+
+        if (ueToSbsMap.count(imsi) && ueToSbsMap[imsi] == 3)  // macroNodeId = 3
+        {
+            if (ueActivityMap[imsi]) {
+                macroActiveUEs++;
+            }
+        }
+    }
+
+    std::cout << "  [Macro] Active UEs: " << macroActiveUEs 
+              << ", Avg SINR: " << macroSinrAverage << " dB" << std::endl;
+
+    totalActiveUEs += macroActiveUEs;
+    totalSINRWeightedSum += macroSinrAverage * macroActiveUEs;
+
+    // === Compute Global Average SINR ===
     if (totalActiveUEs > 0)
         m_globalAvgSINR = totalSINRWeightedSum / totalActiveUEs;
     else
         m_globalAvgSINR = 0.0;
+
+    std::cout << "[Global Average SINR] " << m_globalAvgSINR << " dB" << std::endl;
 }
 
+double LteGymEnv::ScalePower(double power) {
+    const double powerExcellent = 3.0;   // close to SM3 (deep sleep)
+    const double powerPoor = 20.7;       // fully ACTIVE
+
+    if (power <= powerExcellent) return 1.0;
+    if (power >= powerPoor) return -1.0;
+
+    return 2.0 * (powerPoor - power) / (powerPoor - powerExcellent) - 1.0;
+}
+
+double LteGymEnv::ScaleGlobalSinr(double sinrDb) {
+    const double sinrExcellent = 8.0;
+    const double sinrPoor = -0.0;
+
+    if (sinrDb >= sinrExcellent) return 1.0;
+    if (sinrDb <= sinrPoor) return -1.0;
+
+    return 2.0 * (sinrDb - sinrPoor) / (sinrExcellent - sinrPoor) - 1.0;
+}
+
+// float LteGymEnv::GetReward()
+// {
+//     std::cout << "GetReward() called" << std::endl;
+
+//     float totalReward = 0.0;
+
+//     for (const auto& [sbsId, model] : m_energyModels)
+//     {
+//         // === ENERGY ===
+//         double power = model->GetTotalPowerConsumption();  // W
+//         double energyScore = -2.0 * power;  // increased energy penalty
+
+//         // === SINR ===
+//         double sinrDb = 0.0;
+//         if (sbsSinrAverage.count(sbsId)) {
+//             sinrDb = sbsSinrAverage[sbsId];
+//         }
+//         m_lastSbsSinrAverage[sbsId] = sinrDb; 
+//         double qosScore = 2.0 * sinrDb;  // reduced SINR reward
+
+//         // === SWITCHING COST ===
+//         SmallCellEnergyModel::SmallCellState currentState = model->GetState();
+//         SmallCellEnergyModel::SmallCellState previousState = m_lastStates[sbsId];
+//         double switchingPenalty = 0.0;
+
+//         if (currentState != previousState) {
+//             switchingPenalty = 0.5;  // safe exploration switching cost
+//         }
+
+//         double sbsReward = energyScore + qosScore - switchingPenalty;
+
+//         totalReward += sbsReward;
+
+//         // === UPDATE previous state for next step ===
+//         m_lastStates[sbsId] = currentState;
+
+//         // Debug print (optional)
+//         std::cout << "  [SBS " << sbsId << "] Power=" << power
+//                   << "W, SINR=" << sinrDb
+//                   << "dB, SwitchingPenalty=" << switchingPenalty
+//                   << ", Reward=" << sbsReward << std::endl;
+//     }
+
+//     // === Macro SINR contribution ===
+//     std::cout << "  [Macro BS] SINR = " << macroSinrAverage << " dB" << std::endl;
+//     m_lastAvgMacroSinr = macroSinrAverage;
+//     totalReward += 1.0 * macroSinrAverage;
+
+//     // Clear SINR buffer after use
+//     sbsSinrAverage.clear();
+//     macroSinrAverage = 0.0;  
+
+//     return totalReward;
+// }
 
 float LteGymEnv::GetReward()
 {
     std::cout << "GetReward() called" << std::endl;
+    uint32_t numSbs = m_energyModels.size();  // count your SBS nodes
+    std::cout << "number of BS" << numSbs << std::endl;
+    const double raw_w_power = 0.4;
+    const double w_power = raw_w_power / numSbs;  // normalized weight
+    const double w_sinr = 0.6;
+    const double switching_penalty_weight = 0.2 / numSbs;
+
 
     float totalReward = 0.0;
 
     for (const auto& [sbsId, model] : m_energyModels)
     {
-        // === ENERGY ===
-        double power = model->GetTotalPowerConsumption();  // W
-        double energyScore = -2.0 * power;  // increased energy penalty
+        double power = model->GetTotalPowerConsumption();
+        double scaledPower = ScalePower(power);
 
-        // === SINR ===
-        double sinrDb = 0.0;
-        if (sbsSinrAverage.count(sbsId)) {
-            sinrDb = sbsSinrAverage[sbsId];
-        }
-        m_lastSbsSinrAverage[sbsId] = sinrDb; 
-        double qosScore = 2.0 * sinrDb;  // reduced SINR reward
-
-        // === SWITCHING COST ===
         SmallCellEnergyModel::SmallCellState currentState = model->GetState();
         SmallCellEnergyModel::SmallCellState previousState = m_lastStates[sbsId];
-        double switchingPenalty = 0.0;
+        double switchingPenalty = (currentState != previousState) ? switching_penalty_weight : 0.0;
 
-        if (currentState != previousState) {
-            switchingPenalty = 0.5;  // safe exploration switching cost
-        }
-
-        double sbsReward = energyScore + qosScore - switchingPenalty;
-
+        double sbsReward = w_power * scaledPower - switchingPenalty;
         totalReward += sbsReward;
 
-        // === UPDATE previous state for next step ===
         m_lastStates[sbsId] = currentState;
 
-        // Debug print (optional)
-        std::cout << "  [SBS " << sbsId << "] Power=" << power
-                  << "W, SINR=" << sinrDb
-                  << "dB, SwitchingPenalty=" << switchingPenalty
-                  << ", Reward=" << sbsReward << std::endl;
+        std::cout << "[SBS " << sbsId << "] Power=" << power 
+                  << "W (scaled=" << scaledPower << "), Reward=" << sbsReward << std::endl;
     }
 
-    // === Macro SINR contribution ===
-    std::cout << "  [Macro BS] SINR = " << macroSinrAverage << " dB" << std::endl;
-    m_lastAvgMacroSinr = macroSinrAverage;
-    totalReward += 1.0 * macroSinrAverage;
+    double scaledGlobalSinr = ScaleGlobalSinr(m_globalAvgSINR);
+    totalReward += w_sinr * scaledGlobalSinr;
 
-    // Clear SINR buffer after use
-    sbsSinrAverage.clear();
-    macroSinrAverage = 0.0;  
+    std::cout << "[Global Average SINR] " << m_globalAvgSINR 
+              << " dB (scaled = " << scaledGlobalSinr << ")" << std::endl;
 
     return totalReward;
 }
