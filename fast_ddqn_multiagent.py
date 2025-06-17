@@ -57,25 +57,31 @@ class FastDDQNAgent:
 
     def remember(self, state, action, reward, next_state, done):
         self.memory.append((state, int(action), reward, next_state, done))
+ 
+    def act(self, state, episode_num):
+        MASKING_THRESHOLD = 30  # Apply masking only for first 30 episodes
 
-    def act(self, state):
         is_transitioning = state[-1]  # last dim in your state
-        if is_transitioning:
-            valid_actions = [int(state[1])]  # only allow current state action
+        current_state = int(state[1])  # current SBS state
+
+        # Apply masking only during early episodes
+        if episode_num <= MASKING_THRESHOLD and is_transitioning:
+            valid_actions = [current_state]
         else:
             valid_actions = list(range(self.action_size))
-            
+
         if np.random.rand() < self.epsilon:
             return random.choice(valid_actions)
 
         q_values = self.model.predict(state[np.newaxis], verbose=0)[0]
         
-        # Apply mask to q_values
+        # Apply masking to q_values
         masked_q = np.full_like(q_values, -np.inf)
         for a in valid_actions:
             masked_q[a] = q_values[a]
 
         return np.argmax(masked_q)
+
 
     def replay(self):
         if len(self.memory) < BATCH_SIZE:
@@ -127,6 +133,9 @@ class FastDDQNAgent:
         self.train_steps = state["train_steps"]
         self.update_target_network()
 
+    def save_loss_history(self, path_prefix):
+        np.save(f"{path_prefix}_loss.npy", np.array(self.loss_history))
+
 
 class MultiAgentWrapper:
     def __init__(self, n_agents, state_dim_per_agent, action_dim):
@@ -137,9 +146,9 @@ class MultiAgentWrapper:
 
     def split_obs(self, obs):
         return [obs[i*self.state_dim_per_agent:(i+1)*self.state_dim_per_agent] for i in range(self.n_agents)]
-
-    def act(self, agent_states):
-        return [agent.act(agent_states[i]) for i, agent in enumerate(self.agents)]
+    
+    def act(self, agent_states, episode_num):
+        return [agent.act(agent_states[i], episode_num) for i, agent in enumerate(self.agents)]
 
     def remember(self, agent_states, actions, rewards, next_agent_states, done):
         for i, agent in enumerate(self.agents):
@@ -156,6 +165,10 @@ class MultiAgentWrapper:
     def load_all(self, base_path="agent"):
         for i, agent in enumerate(self.agents):
             agent.load(f"{base_path}_{i}")
+
+    def save_all_losses(self, base_path="agent"):
+        for i, agent in enumerate(self.agents):
+            agent.save_loss_history(f"{base_path}_{i}")
 
     @property
     def epsilons(self):
@@ -194,7 +207,7 @@ if __name__ == "__main__":
             print("--------------------")
             print(f"Step {step_count+1} (Episode {ep})")
             print("--------------------")
-            actions = wrapper.act(agent_states)
+            actions = wrapper.act(agent_states, ep)
             next_obs, reward, done, info = env.step(np.array(actions, dtype=np.uint32))
             info_str = info if isinstance(info, str) else info[0]
             info_parts = dict(item.split("=") for item in info_str.split(";"))
@@ -235,11 +248,19 @@ if __name__ == "__main__":
     env.close()
     wrapper.save_all("trained_ddqn_agent")
     print(" Final model saved.")
+    wrapper.save_all_losses("trained_ddqn_agent")
+    print("Loss histories saved.")
 
     packets_per_ue = SIM_TIME / PACKET_INTERVAL
     total_packets = packets_per_ue * NUM_UES
     total_bits = total_packets * PACKET_SIZE_BYTES * 8
     ee_per_episode = [total_bits / energy for energy in total_energy_per_episode]
+
+
+    np.save("avg_reward_per_episode.npy", np.array(avg_rewards_per_episode))
+    np.save("sinr_per_episode.npy", np.array(avg_sbs_sinr_per_episode))
+    np.save("energy_efficiency_per_episode.npy", np.array(ee_per_episode))
+    
 
     plt.figure(figsize=(10,6))
     plt.plot(range(1, len(ee_per_episode)+1), ee_per_episode, marker='o')
@@ -261,16 +282,16 @@ if __name__ == "__main__":
     plt.savefig("sinr_per_episode.png")
     plt.show()
 
-    plt.figure(figsize=(10, 5))
-    plt.plot(step_rewards, label="Reward per Step")
-    plt.xlabel("Step")
-    plt.ylabel("Total Reward")
-    plt.title("Step-by-Step Reward During Training")
-    plt.grid(True)
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig("reward_per_step.png")
-    plt.show()
+    # plt.figure(figsize=(10, 5))
+    # plt.plot(step_rewards, label="Reward per Step")
+    # plt.xlabel("Step")
+    # plt.ylabel("Total Reward")
+    # plt.title("Step-by-Step Reward During Training")
+    # plt.grid(True)
+    # plt.legend()
+    # plt.tight_layout()
+    # plt.savefig("reward_per_step.png")
+    # plt.show()
 
     plt.figure(figsize=(10, 6))
     plt.plot(avg_rewards_per_episode, label='Avg Total Reward')

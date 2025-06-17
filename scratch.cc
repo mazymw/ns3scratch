@@ -1424,7 +1424,7 @@ float LteGymEnv::GetReward()
     {
         // === ENERGY ===
         double power = model->GetTotalPowerConsumption();  // W
-        double energyScore = -1.0 * power;
+        double energyScore = -2.0 * power;  // increased energy penalty
 
         // === SINR ===
         double sinrDb = 0.0;
@@ -1432,7 +1432,7 @@ float LteGymEnv::GetReward()
             sinrDb = sbsSinrAverage[sbsId];
         }
         m_lastSbsSinrAverage[sbsId] = sinrDb; 
-        double qosScore = 3.0 * sinrDb;
+        double qosScore = 2.0 * sinrDb;  // reduced SINR reward
 
         // === SWITCHING COST ===
         SmallCellEnergyModel::SmallCellState currentState = model->GetState();
@@ -1440,7 +1440,7 @@ float LteGymEnv::GetReward()
         double switchingPenalty = 0.0;
 
         if (currentState != previousState) {
-            switchingPenalty = 0.5;  // You can adjust this weight
+            switchingPenalty = 0.5;  // safe exploration switching cost
         }
 
         double sbsReward = energyScore + qosScore - switchingPenalty;
