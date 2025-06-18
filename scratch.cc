@@ -1515,9 +1515,9 @@ float LteGymEnv::GetReward()
     std::cout << "GetReward() called" << std::endl;
     uint32_t numSbs = m_energyModels.size();  // count your SBS nodes
     std::cout << "number of BS" << numSbs << std::endl;
-    const double raw_w_power = 0.4;
+    const double raw_w_power = 0.5;
     const double w_power = raw_w_power / numSbs;  // normalized weight
-    const double w_sinr = 0.6;
+    const double w_sinr = 0.5;
     const double switching_penalty_weight = 0.2 / numSbs;
 
 
@@ -1615,26 +1615,13 @@ std::string LteGymEnv::GetExtraInfo()
         totalEnergy += model->GetTotalEnergyConsumption();
     }
 
-    // === Global UE-Weighted SINR calculation ===
-    double totalSbsSinr = 0.0;
-    uint32_t totalUEs = 0;
+    // === Use directly the global SINR ===
+    double globalSinr = m_globalAvgSINR;
 
-    for (const auto& [sbsId, sinr] : m_lastSbsSinrAverage)
-    {
-        uint32_t activeUes = m_activeUeCounts[sbsId];  // <-- reuse the latest active UE count per SBS
-        totalSbsSinr += sinr * activeUes;
-        totalUEs += activeUes;
-    }
-
-    double avgSbsSinr = (totalUEs > 0) ? (totalSbsSinr / totalUEs) : 0.0;
-
-    double avgMacroSinr = m_lastAvgMacroSinr;
-
-    // === Pack everything into ExtraInfo string ===
+    // === Pack into ExtraInfo string ===
     std::ostringstream oss;
     oss << "total_energy=" << totalEnergy
-        << ";avg_sbs_sinr=" << avgSbsSinr
-        << ";macro_sinr=" << avgMacroSinr;
+        << ";global_sinr=" << globalSinr;
 
     return oss.str();
 }
