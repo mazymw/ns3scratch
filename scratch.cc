@@ -1309,7 +1309,7 @@ LteGymEnv::LteGymEnv(const std::vector<Ptr<Node>>& sbsNodes,
 Ptr<OpenGymSpace> LteGymEnv::GetObservationSpace()
 {
     std::cout << "GetObservationSpace() called" << std::endl;
-    uint32_t dim = m_energyModels.size() * 3;  // 3 values per SBS
+    uint32_t dim = m_energyModels.size() * 5;  // 3 values per SBS
     std::vector<uint32_t> shape = {dim};
     float low = 0.0;
     float high = 100000.0;  // Adjust as needed
