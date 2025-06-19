@@ -7,12 +7,13 @@ from tensorflow import keras
 from ns3gym import ns3env
 import matplotlib.pyplot as plt
 import os
+import subprocess
 
 # Hyperparameters
 BATCH_SIZE = 128
 TARGET_UPDATE_FREQ = 100
 MEM_SIZE = 100000
-EPISODES = 200
+EPISODES = 150
 MAX_STEPS = 1000
 N_AGENTS = 3
 STATE_DIM_PER_AGENT = 5
@@ -34,7 +35,7 @@ class FastDDQNAgent:
         self.gamma = 0.98
         self.epsilon = 1.0
         self.epsilon_min = 0.05
-        self.epsilon_decay = 0.9999804
+        self.epsilon_decay = 0.9999700431
         self.lr = 0.0003
 
         self.model = self._build_model()
@@ -174,6 +175,32 @@ class MultiAgentWrapper:
     def epsilons(self):
         return [a.epsilon for a in self.agents]
 
+def simulate_baseline_energy(env, episodes, max_steps):
+    print("\n=== Running Baseline (All SBS Always Active) ===")
+    baseline_energy_per_episode = []
+
+    for ep in range(1, episodes + 1):
+        obs = env.reset()
+        done = False
+        step_count = 0
+        total_energy = 0.0
+
+        while not done and step_count < max_steps:
+            action = [0] * N_AGENTS  # Force all SBS to SM3
+            _, _, done, info = env.step(np.array(action, dtype=np.uint32))
+
+            info_str = info if isinstance(info, str) else info[0]
+            info_parts = dict(item.split("=") for item in info_str.split(";"))
+            energy_value = float(info_parts.get("total_energy", 0.0))
+            total_energy = energy_value
+            step_count += 1
+
+        print(f"Baseline Episode {ep}: Total Energy = {total_energy:.2f} J")
+        baseline_energy_per_episode.append(total_energy)
+
+    return baseline_energy_per_episode
+
+
 
 if __name__ == "__main__":
     env = ns3env.Ns3Env(port=5555, stepTime=0.01, startSim=True, simSeed=1)
@@ -237,6 +264,41 @@ if __name__ == "__main__":
         avg_sbs_sinr_per_episode.append(sbs_sinr_sum / sinr_step_count)
         # avg_macro_sinr_per_episode.append(macro_sinr_sum / sinr_step_count)
 
+        packets_per_ue = SIM_TIME / PACKET_INTERVAL
+        total_packets = packets_per_ue * NUM_UES
+        total_bits = total_packets * PACKET_SIZE_BYTES * 8
+        ee_per_episode = [total_bits / e for e in total_energy_per_episode]
+
+        # Plot reward
+        plt.figure()
+        plt.plot(avg_rewards_per_episode)
+        plt.xlabel("Episode")
+        plt.ylabel("Reward")
+        plt.title("Avg Reward Per Episode")
+        plt.grid(True)
+        plt.savefig("avg_reward_per_episode_live.png")
+        plt.close()
+
+        # Plot SINR
+        plt.figure()
+        plt.plot(avg_sbs_sinr_per_episode)
+        plt.xlabel("Episode")
+        plt.ylabel("Global SINR (dB)")
+        plt.title("Global Avg SINR Per Episode")
+        plt.grid(True)
+        plt.savefig("sinr_per_episode_live.png")
+        plt.close()
+
+        # Plot Energy Efficiency
+        plt.figure()
+        plt.plot(ee_per_episode)
+        plt.xlabel("Episode")
+        plt.ylabel("Energy Efficiency (bits/Joule)")
+        plt.title("Energy Efficiency Per Episode")
+        plt.grid(True)
+        plt.savefig("energy_efficiency_per_episode_live.png")
+        plt.close()
+
         print(f"Episode {ep}: Reward: {episode_rewards} | Epsilon: {[round(e,2) for e in wrapper.epsilons]}")
 
         if ep % 100 == 0:
@@ -248,6 +310,50 @@ if __name__ == "__main__":
     print(" Final model saved.")
     wrapper.save_all_losses("trained_ddqn_agent")
     print("Loss histories saved.")
+
+    # === Simulate Baseline (always active SBS) ===
+    print("\n[INFO] Launching baseline simulation...")
+    os.environ["NS3_BASELINE"] = "1"
+    env = ns3env.Ns3Env(port=5555, stepTime=0.01, startSim=True, simSeed=2)
+    baseline_energy = simulate_baseline_energy(env, EPISODES, MAX_STEPS)
+    env.close()
+    os.environ["NS3_BASELINE"] = "0"
+
+    # === Save energy results ===
+    np.save("rl_energy_per_episode.npy", np.array(total_energy_per_episode))
+    np.save("baseline_energy_per_episode.npy", np.array(baseline_energy))
+
+    # === Calculate energy efficiency (bits/J) ===
+    ee_rl = [total_bits / e for e in total_energy_per_episode]
+    ee_baseline = [total_bits / e for e in baseline_energy]
+
+    np.save("energy_efficiency_baseline.npy", np.array(ee_baseline))
+
+    # === Plot: Energy Consumption Comparison ===
+    plt.figure(figsize=(10,6))
+    plt.plot(total_energy_per_episode, label="With RL (DDQN)")
+    plt.plot(baseline_energy, label="Baseline (Always Active)")
+    plt.xlabel("Episode")
+    plt.ylabel("Total Energy (Joules)")
+    plt.title("Energy Consumption Comparison")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig("energy_comparison.png")
+    plt.show()
+
+    # === Plot: Energy Efficiency Comparison ===
+    plt.figure(figsize=(10,6))
+    plt.plot(ee_rl, label="With RL (DDQN)")
+    plt.plot(ee_baseline, label="Baseline (Always Active)")
+    plt.xlabel("Episode")
+    plt.ylabel("Energy Efficiency (bits/Joule)")
+    plt.title("Energy Efficiency Comparison")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig("energy_efficiency_comparison.png")
+    plt.show()
 
     packets_per_ue = SIM_TIME / PACKET_INTERVAL
     total_packets = packets_per_ue * NUM_UES
@@ -297,3 +403,8 @@ if __name__ == "__main__":
     plt.tight_layout()
     plt.savefig("avg_reward_per_episode.png")
     plt.show()
+
+    # === Auto-run SBS state plot script from parent folder ===
+    subprocess.run(["python3", "../plot_sbs_state_times.py"])
+
+

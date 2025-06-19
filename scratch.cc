@@ -30,7 +30,7 @@
 using namespace ns3;
 // using namespace ns3::energy;
 
-
+bool g_isBaselineRun = false;  
 // Global tracking maps
 std::map<uint32_t, uint32_t> sbsToUeCount;         // SBS NodeId -> UE count
 std::map<uint64_t, uint32_t> ueToSbsMap;           // IMSI -> SBS NodeId
@@ -1447,7 +1447,7 @@ double LteGymEnv::ScalePower(double power) {
 
 double LteGymEnv::ScaleGlobalSinr(double sinrDb) {
     const double sinrExcellent = 8.0;
-    const double sinrPoor = -0.0;
+    const double sinrPoor = -12.0;
 
     if (sinrDb >= sinrExcellent) return 1.0;
     if (sinrDb <= sinrPoor) return -1.0;
@@ -1517,7 +1517,7 @@ float LteGymEnv::GetReward()
     std::cout << "number of BS" << numSbs << std::endl;
     const double raw_w_power = 0.5;
     const double w_power = raw_w_power / numSbs;  // normalized weight
-    const double w_sinr = 0.5;
+    const double w_sinr = 0.6;
     const double switching_penalty_weight = 0.2 / numSbs;
 
 
@@ -1663,6 +1663,17 @@ void ScheduleNextStateRead(double envStepTime, Ptr<OpenGymInterface> openGym)
 // === Main Simulation ===
 int main(int argc, char *argv[])
 {
+    char* env = std::getenv("NS3_BASELINE");
+    if (env && std::string(env) == "1")
+    {
+        g_isBaselineRun = true;
+        // std::cout << "[INFO] Running in BASELINE mode — SBS metrics won't be saved.\n";
+    }
+    else
+    {
+        // std::cout << "[INFO] Running in RL training mode — SBS metrics will be saved.\n";
+    }
+
     uint16_t numSmallCells = 3;
     uint16_t numUesPerCell = 10;
     double simulationTime = 10; // seconds (should be double for step arithmetic)
@@ -2080,9 +2091,15 @@ int main(int argc, char *argv[])
     // gymInterface->NotifySimulationEnd();
     // Simulator::Destroy();
 
-    for (const auto& [sbsId, model] : sbsEnergyModels)
+    if (!g_isBaselineRun)
     {
-        model->ExportStateTimeToCsv(1);
+        for (const auto& [sbsId, model] : sbsEnergyModels)
+        {
+            model->ExportStateTimeToCsv(1);
+        }
+    }else
+    {
+        std::cout << "[INFO] Skipping SBS CSV export in baseline mode.\n";
     }
     // monitor->CheckForLostPackets();
     // monitor->SerializeToXmlFile("flowmon-results.xml", true, true); 
