@@ -1446,13 +1446,16 @@ double LteGymEnv::ScalePower(double power) {
 }
 
 double LteGymEnv::ScaleGlobalSinr(double sinrDb) {
-    const double sinrExcellent = 8.0;
-    const double sinrPoor = -12.0;
+    if (sinrDb > 10.0) return 1.0;         // Acceptable but not prioritized
+    if (sinrDb > 5.0)  return 2.0;         // Strongly encouraged range
 
-    if (sinrDb >= sinrExcellent) return 1.0;
-    if (sinrDb <= sinrPoor) return -1.0;
+    if (sinrDb >= 0.0)
+        return sinrDb / 5.0;               // Linearly scales from 0 to +1
 
-    return 2.0 * (sinrDb - sinrPoor) / (sinrExcellent - sinrPoor) - 1.0;
+    if (sinrDb > -10.0)
+        return sinrDb / 10.0;              // Linearly scales from 0 to -1
+
+    return -1.0;                           // Very poor SINR
 }
 
 // float LteGymEnv::GetReward()

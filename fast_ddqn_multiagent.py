@@ -8,12 +8,13 @@ from ns3gym import ns3env
 import matplotlib.pyplot as plt
 import os
 import subprocess
+import csv
 
 # Hyperparameters
 BATCH_SIZE = 128
 TARGET_UPDATE_FREQ = 100
 MEM_SIZE = 100000
-EPISODES = 150
+EPISODES = 1
 MAX_STEPS = 1000
 N_AGENTS = 3
 STATE_DIM_PER_AGENT = 5
@@ -219,7 +220,7 @@ if __name__ == "__main__":
     total_energy_per_episode = []
     avg_sbs_sinr_per_episode = []
     # avg_macro_sinr_per_episode = []
-
+    sbs_state_log = {i: [] for i in range(N_AGENTS)} 
     print("==== Fast Multi-Agent DDQN Training Start ====")
     for ep in range(1, EPISODES+1):
         obs = env.reset()
@@ -236,8 +237,14 @@ if __name__ == "__main__":
             print("--------------------")
             actions = wrapper.act(agent_states, ep)
             next_obs, reward, done, info = env.step(np.array(actions, dtype=np.uint32))
+            for i in range(N_AGENTS):
+                current_state = int(next_obs[i * STATE_DIM_PER_AGENT + 1])  # 2nd value
+                sbs_state_log[i].append((ep, step_count, current_state))
+
             info_str = info if isinstance(info, str) else info[0]
             info_parts = dict(item.split("=") for item in info_str.split(";"))
+            print(f"Step {step_count+1} | Reward: {reward} | Done: {done} | Info: {info_parts} | Next Obs: {next_obs}")
+            
             energy_value = float(info_parts.get("total_energy", 0.0))
             global_sinr_value = float(info_parts.get("global_sinr", 0.0))
             current_episode_energy = energy_value
@@ -306,10 +313,25 @@ if __name__ == "__main__":
             print("Saved model snapshot at episode", ep)
 
     env.close()
+
     wrapper.save_all("trained_ddqn_agent")
     print(" Final model saved.")
     wrapper.save_all_losses("trained_ddqn_agent")
     print("Loss histories saved.")
+
+    with open("sbs_state_history.csv", "w", newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(["episode", "step"] + [f"SBS_{i}_state" for i in range(N_AGENTS)])
+
+        # Transpose the log structure to group by (episode, step)
+        max_len = max(len(sbs_state_log[i]) for i in sbs_state_log)
+        for idx in range(max_len):
+            try:
+                ep, step = sbs_state_log[0][idx][:2]
+                row = [ep, step] + [sbs_state_log[i][idx][2] for i in range(N_AGENTS)]
+                writer.writerow(row)
+            except IndexError:
+                continue  # skip if any SBS has fewer entries (shouldn't happen)
 
     # === Simulate Baseline (always active SBS) ===
     print("\n[INFO] Launching baseline simulation...")
