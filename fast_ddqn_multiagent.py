@@ -347,10 +347,11 @@ if __name__ == "__main__":
 
     baseline_energy_per_episode = []
 
+    os.environ["NS3_BASELINE"] = "1"
     print("\n[INFO] Launching baseline simulation for each episode...")
     for ep in range(1, EPISODES + 1):
         print(f"[Baseline] Running Episode {ep} with simSeed={ep}")
-        os.environ["NS3_BASELINE"] = "1"
+
         
         env = ns3env.Ns3Env(port=5555, stepTime=0.01, startSim=True, simSeed=ep)
         energy = simulate_baseline_energy(env, 1, MAX_STEPS)  # run 1 baseline episode
@@ -448,4 +449,10 @@ if __name__ == "__main__":
     # === Auto-run SBS state plot script from parent folder ===
     subprocess.run(["python3", "../plot_sbs_state_times.py"])
 
+    try:
+        print("📊 Plotting SBS state distribution...")
+        subprocess.run(["python3", "../plot_sbs_state_distribution.py"], check=True)
+        print("✅ SBS state distribution plot generated.")
+    except subprocess.CalledProcessError as e:
+        print("❌ Failed to generate SBS state distribution plot:", e)
 
