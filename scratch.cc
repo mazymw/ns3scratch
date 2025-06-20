@@ -1446,7 +1446,7 @@ double LteGymEnv::ScalePower(double power) {
 }
 
 double LteGymEnv::ScaleGlobalSinr(double sinrDb) {
-    if (sinrDb > 10.0) return 1.0;         // Acceptable but not prioritized
+    if (sinrDb > 13.0) return 1.0;         // Acceptable but not prioritized
     if (sinrDb > 5.0)  return 2.0;         // Strongly encouraged range
 
     if (sinrDb >= 0.0)

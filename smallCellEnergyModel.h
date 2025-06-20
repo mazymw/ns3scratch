@@ -55,7 +55,7 @@ public:
     : m_currentState(ACTIVE),
       m_remainingEnergy(1000.0),
       m_energyConsumed(0.0),
-      m_activeTxPower(33.0),
+      m_activeTxPower(37.0),
       m_transitioning(false),
       m_transitionEndTime(Seconds(0))
   {
@@ -96,7 +96,7 @@ public:
         return;
     }
 
-    const double minActiveDuration = 0.02;
+    const double minActiveDuration = 0.0;
     if (m_currentState == ACTIVE && state != ACTIVE) {
         Time now = Simulator::Now();
         Time timeInActive = now - m_activeEnteredTime;
