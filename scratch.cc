@@ -1763,35 +1763,35 @@ int main(int argc, char *argv[])
     uePositionAlloc->SetAttribute("Y", StringValue("ns3::UniformRandomVariable[Min=800.0|Max=1000.0]"));
 
     // Configure the UE MobilityHelper with RandomWaypointMobilityModel
-    // MobilityHelper ueMobility;
-    // ueMobility.SetMobilityModel("ns3::RandomWaypointMobilityModel",
-    //     "Speed", StringValue("ns3::UniformRandomVariable[Min=1.0|Max=50.0]"),
-    //     "Pause", StringValue("ns3::ConstantRandomVariable[Constant=0.5]"),
-    //     "PositionAllocator", PointerValue(uePositionAlloc));
-    // ueMobility.SetPositionAllocator(uePositionAlloc);
-    // ueMobility.Install(ueNodes);
-
     MobilityHelper ueMobility;
-    ueMobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
-    ueMobility.SetPositionAllocator(uePositionAlloc); // for non-manual UEs
+    ueMobility.SetMobilityModel("ns3::RandomWaypointMobilityModel",
+        "Speed", StringValue("ns3::UniformRandomVariable[Min=1.0|Max=50.0]"),
+        "Pause", StringValue("ns3::ConstantRandomVariable[Constant=0.5]"),
+        "PositionAllocator", PointerValue(uePositionAlloc));
+    ueMobility.SetPositionAllocator(uePositionAlloc);
     ueMobility.Install(ueNodes);
+
+    // MobilityHelper ueMobility;
+    // ueMobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
+    // ueMobility.SetPositionAllocator(uePositionAlloc); // for non-manual UEs
+    // ueMobility.Install(ueNodes);
 
     // Override position of UE[0] and UE[1]
     for (uint32_t i = 0; i < ueNodes.GetN(); ++i) {
         Ptr<Node> ueNode = ueNodes.Get(i);
         Ptr<MobilityModel> mob = ueNode->GetObject<MobilityModel>();
 
-        if (i == 0) {
-            // IMSI = 1 (first UE)
-            mob->SetPosition(Vector(250.0, 850.0, 0.0));
-        } else if (i == 1) {
-            // IMSI = 2 (second UE)
-            mob->SetPosition(Vector(375.0, 800.0, 0.0));
-        }
+        // if (i == 0) {
+        //     // IMSI = 1 (first UE)
+        //     mob->SetPosition(Vector(250.0, 850.0, 0.0));
+        // } else if (i == 1) {
+        //     // IMSI = 2 (second UE)
+        //     mob->SetPosition(Vector(375.0, 800.0, 0.0));
+        // }
 
         // Log IMSI + position
         uint32_t imsi = i + 1;
-        // LogUePositions(ueNode, imsi);
+        LogUePositions(ueNode, imsi);
     }
 
 
@@ -2026,8 +2026,8 @@ int main(int argc, char *argv[])
     // Simulator::Schedule(Seconds(1.0), &PrintRemainingEnergy, energyModels);
     
     
-    // Simulator::Schedule(Seconds(1.0), &PrintSbsPositions, smallCellEnbs);
-    // Simulator::Schedule(Seconds(1.0), &PrintSbsPositions, macroEnb);
+    Simulator::Schedule(Seconds(0.0), &PrintSbsPositions, smallCellEnbs);
+    Simulator::Schedule(Seconds(0.0), &PrintSbsPositions, macroEnb);
     // Simulator::Schedule(Seconds(0.5), &PrintSbsConnections);
     // Simulator::Schedule(Seconds(1.0), &PrintSbsUeMappings);
     // Simulator::Schedule(Seconds(1.0), &PrintSbsUeCounts);
