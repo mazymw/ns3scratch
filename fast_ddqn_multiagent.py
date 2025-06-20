@@ -14,7 +14,7 @@ import csv
 BATCH_SIZE = 128
 TARGET_UPDATE_FREQ = 100 
 MEM_SIZE = 100000
-EPISODES = 150
+EPISODES = 2
 MAX_STEPS = 1000
 N_AGENTS = 3
 STATE_DIM_PER_AGENT = 5
@@ -204,7 +204,7 @@ def simulate_baseline_energy(env, episodes, max_steps):
 
 
 if __name__ == "__main__":
-    env = ns3env.Ns3Env(port=5555, stepTime=0.01, startSim=True, simSeed=1)
+    # env = ns3env.Ns3Env(port=5555, stepTime=0.01, startSim=True, simSeed=1)
     wrapper = MultiAgentWrapper(N_AGENTS, STATE_DIM_PER_AGENT, ACTION_DIM)
 
     # === Resume control ===
@@ -223,6 +223,8 @@ if __name__ == "__main__":
     sbs_state_log = {i: [] for i in range(N_AGENTS)} 
     print("==== Fast Multi-Agent DDQN Training Start ====")
     for ep in range(1, EPISODES+1):
+        sim_seed = ep  # or random.randint(...) if variability is more important
+        env = ns3env.Ns3Env(port=5555, stepTime=0.01, startSim=True, simSeed=sim_seed)
         obs = env.reset()
         agent_states = wrapper.split_obs(obs)
         done = False
@@ -312,7 +314,9 @@ if __name__ == "__main__":
             wrapper.save_all("trained_ddqn_agent")
             print("Saved model snapshot at episode", ep)
 
-    env.close()
+        env.close()
+
+    # env.close()
 
     wrapper.save_all("trained_ddqn_agent")
     print(" Final model saved.")
@@ -334,27 +338,42 @@ if __name__ == "__main__":
                 continue  # skip if any SBS has fewer entries (shouldn't happen)
 
     # === Simulate Baseline (always active SBS) ===
-    print("\n[INFO] Launching baseline simulation...")
-    os.environ["NS3_BASELINE"] = "1"
-    env = ns3env.Ns3Env(port=5555, stepTime=0.01, startSim=True, simSeed=2)
-    baseline_energy = simulate_baseline_energy(env, EPISODES, MAX_STEPS)
-    env.close()
+    # print("\n[INFO] Launching baseline simulation...")
+    # os.environ["NS3_BASELINE"] = "1"
+    # env = ns3env.Ns3Env(port=5555, stepTime=0.01, startSim=True, simSeed=2)
+    # baseline_energy = simulate_baseline_energy(env, EPISODES, MAX_STEPS)
+    # env.close()
+    # os.environ["NS3_BASELINE"] = "0"
+
+    baseline_energy_per_episode = []
+
+    print("\n[INFO] Launching baseline simulation for each episode...")
+    for ep in range(1, EPISODES + 1):
+        print(f"[Baseline] Running Episode {ep} with simSeed={ep}")
+        os.environ["NS3_BASELINE"] = "1"
+        
+        env = ns3env.Ns3Env(port=5555, stepTime=0.01, startSim=True, simSeed=ep)
+        energy = simulate_baseline_energy(env, 1, MAX_STEPS)  # run 1 baseline episode
+        env.close()
+        
+        baseline_energy_per_episode.extend(energy)
+
     os.environ["NS3_BASELINE"] = "0"
 
     # === Save energy results ===
     np.save("rl_energy_per_episode.npy", np.array(total_energy_per_episode))
-    np.save("baseline_energy_per_episode.npy", np.array(baseline_energy))
+    np.save("baseline_energy_per_episode.npy", np.array(baseline_energy_per_episode))
 
     # === Calculate energy efficiency (bits/J) ===
     ee_rl = [total_bits / e for e in total_energy_per_episode]
-    ee_baseline = [total_bits / e for e in baseline_energy]
+    ee_baseline = [total_bits / e for e in baseline_energy_per_episode]
 
     np.save("energy_efficiency_baseline.npy", np.array(ee_baseline))
 
     # === Plot: Energy Consumption Comparison ===
     plt.figure(figsize=(10,6))
     plt.plot(total_energy_per_episode, label="With RL (DDQN)")
-    plt.plot(baseline_energy, label="Baseline (Always Active)")
+    plt.plot(baseline_energy_per_episode, label="Baseline (Always Active)")
     plt.xlabel("Episode")
     plt.ylabel("Total Energy (Joules)")
     plt.title("Energy Consumption Comparison")
