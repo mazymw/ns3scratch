@@ -96,7 +96,7 @@ public:
         return;
     }
 
-    const double minActiveDuration = 0.0;
+    const double minActiveDuration = 0.02;
     if (m_currentState == ACTIVE && state != ACTIVE) {
         Time now = Simulator::Now();
         Time timeInActive = now - m_activeEnteredTime;

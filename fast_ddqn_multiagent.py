@@ -14,7 +14,7 @@ import csv
 BATCH_SIZE = 128
 TARGET_UPDATE_FREQ = 100 
 MEM_SIZE = 100000
-EPISODES = 150
+EPISODES = 120
 MAX_STEPS = 1000
 N_AGENTS = 3
 STATE_DIM_PER_AGENT = 5
@@ -36,7 +36,7 @@ class FastDDQNAgent:
         self.gamma = 0.98
         self.epsilon = 1.0
         self.epsilon_min = 0.05
-        self.epsilon_decay = 0.9999700431
+        self.epsilon_decay = 0.9999266522
         self.lr = 0.0003
 
         self.model = self._build_model()
@@ -128,8 +128,8 @@ class FastDDQNAgent:
         np.save(f"{path_prefix}_meta.npy", state)
 
     def load(self, path_prefix):
-        self.model = keras.models.load_model(f"{path_prefix}_model.h5")
-        self.target_model = keras.models.load_model(f"{path_prefix}_target_model.h5")
+        self.model = keras.models.load_model(f"{path_prefix}_model.h5", compile=False)
+        self.target_model = keras.models.load_model(f"{path_prefix}_target_model.h5", compile=False)
         state = np.load(f"{path_prefix}_meta.npy", allow_pickle=True).item()
         self.epsilon = state["epsilon"]
         self.train_steps = state["train_steps"]
@@ -176,30 +176,37 @@ class MultiAgentWrapper:
     def epsilons(self):
         return [a.epsilon for a in self.agents]
 
-def simulate_baseline_energy(env, episodes, max_steps):
-    print("\n=== Running Baseline (All SBS Always Active) ===")
+def simulate_baseline_energy_and_sinr(env, episodes, max_steps):
     baseline_energy_per_episode = []
+    baseline_sinr_per_episode = []
 
-    for ep in range(1, episodes + 1):
+    for ep in range(episodes):
         obs = env.reset()
         done = False
         step_count = 0
         total_energy = 0.0
+        sinr_sum = 0.0
+        sinr_steps = 0
 
         while not done and step_count < max_steps:
-            action = [0] * N_AGENTS  # Force all SBS to SM3
+            action = [0] * N_AGENTS  # Keep SBS always active
             _, _, done, info = env.step(np.array(action, dtype=np.uint32))
 
             info_str = info if isinstance(info, str) else info[0]
             info_parts = dict(item.split("=") for item in info_str.split(";"))
-            energy_value = float(info_parts.get("total_energy", 0.0))
-            total_energy = energy_value
+            total_energy = float(info_parts.get("total_energy", 0.0))
+            global_sinr = float(info_parts.get("global_sinr", 0.0))
+
+            sinr_sum += global_sinr
+            sinr_steps += 1
             step_count += 1
 
-        print(f"Baseline Episode {ep}: Total Energy = {total_energy:.2f} J")
+        avg_sinr = sinr_sum / sinr_steps if sinr_steps else 0
         baseline_energy_per_episode.append(total_energy)
+        baseline_sinr_per_episode.append(avg_sinr)
 
-    return baseline_energy_per_episode
+    return baseline_energy_per_episode, baseline_sinr_per_episode
+
 
 
 
@@ -346,6 +353,7 @@ if __name__ == "__main__":
     # os.environ["NS3_BASELINE"] = "0"
 
     baseline_energy_per_episode = []
+    baseline_sinr_per_episode = []
 
     os.environ["NS3_BASELINE"] = "1"
     print("\n[INFO] Launching baseline simulation for each episode...")
@@ -354,16 +362,19 @@ if __name__ == "__main__":
 
         
         env = ns3env.Ns3Env(port=5555, stepTime=0.01, startSim=True, simSeed=ep)
-        energy = simulate_baseline_energy(env, 1, MAX_STEPS)  # run 1 baseline episode
+        energy, sinr = simulate_baseline_energy_and_sinr(env, 1, MAX_STEPS)
+        baseline_energy_per_episode.extend(energy)
+        baseline_sinr_per_episode.extend(sinr)
         env.close()
         
-        baseline_energy_per_episode.extend(energy)
+
 
     os.environ["NS3_BASELINE"] = "0"
 
     # === Save energy results ===
     np.save("rl_energy_per_episode.npy", np.array(total_energy_per_episode))
     np.save("baseline_energy_per_episode.npy", np.array(baseline_energy_per_episode))
+    np.save("baseline_sinr_per_episode.npy", np.array(baseline_sinr_per_episode))
 
     # === Calculate energy efficiency (bits/J) ===
     ee_rl = [total_bits / e for e in total_energy_per_episode]
@@ -383,6 +394,24 @@ if __name__ == "__main__":
     plt.tight_layout()
     plt.savefig("energy_comparison.png")
     plt.show()
+
+    # === Plot: SINR Comparison ===
+    try:
+        baseline_sinr_per_episode = np.load("baseline_sinr_per_episode.npy")
+        plt.figure(figsize=(10,6))
+        plt.plot(avg_sbs_sinr_per_episode, label="With RL (DDQN)", linewidth=2)
+        plt.plot(baseline_sinr_per_episode, label="Baseline (Always Active)", linestyle="--", color="orange", linewidth=2)
+        plt.xlabel("Episode")
+        plt.ylabel("Global SINR (dB)")
+        plt.title("SINR Comparison: RL vs Baseline")
+        plt.legend()
+        plt.grid(True)
+        plt.tight_layout()
+        plt.savefig("sinr_comparison.png")
+        plt.show()
+    except Exception as e:
+        print("❌ Could not plot SINR comparison:", e)
+
 
     # === Plot: Energy Efficiency Comparison ===
     plt.figure(figsize=(10,6))

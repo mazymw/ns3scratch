@@ -1446,8 +1446,8 @@ double LteGymEnv::ScalePower(double power) {
 }
 
 double LteGymEnv::ScaleGlobalSinr(double sinrDb) {
-    if (sinrDb > 13.0) return 1.0;         // Acceptable but not prioritized
-    if (sinrDb > 5.0)  return 2.0;         // Strongly encouraged range
+    if (sinrDb > 13.0) return 0.5;         // Acceptable but not prioritized
+    if (sinrDb > 5.0)  return 1.0;         // Strongly encouraged range
 
     if (sinrDb >= 0.0)
         return sinrDb / 5.0;               // Linearly scales from 0 to +1
@@ -1759,7 +1759,7 @@ int main(int argc, char *argv[])
     // }
     // Create Position Allocator separately
     Ptr<PositionAllocator> uePositionAlloc = CreateObject<RandomRectanglePositionAllocator>();
-    uePositionAlloc->SetAttribute("X", StringValue("ns3::UniformRandomVariable[Min=0.0|Max=1000.0]"));
+    uePositionAlloc->SetAttribute("X", StringValue("ns3::UniformRandomVariable[Min=0.0|Max=3500.0]"));
     uePositionAlloc->SetAttribute("Y", StringValue("ns3::UniformRandomVariable[Min=800.0|Max=1000.0]"));
 
     // Configure the UE MobilityHelper with RandomWaypointMobilityModel
@@ -1791,7 +1791,7 @@ int main(int argc, char *argv[])
 
         // Log IMSI + position
         uint32_t imsi = i + 1;
-        // LogUePositions(ueNode, imsi);
+        LogUePositions(ueNode, imsi);
     }
 
 
@@ -1807,7 +1807,7 @@ int main(int argc, char *argv[])
     // Small cells
     mobility.SetPositionAllocator("ns3::GridPositionAllocator",
         "MinX", DoubleValue(250.0), "MinY", DoubleValue(750.0),
-        "DeltaX", DoubleValue(250.0), "GridWidth", UintegerValue(numSmallCells),
+        "DeltaX", DoubleValue(1000.0), "GridWidth", UintegerValue(numSmallCells),
         "LayoutType", StringValue("RowFirst"));
     mobility.Install(smallCellEnbs);
 
