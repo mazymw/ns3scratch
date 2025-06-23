@@ -1436,7 +1436,7 @@ void LteGymEnv::CollectEnvData()
 }
 
 double LteGymEnv::ScalePower(double power) {
-    const double powerExcellent = 3.0;   // close to SM3 (deep sleep)
+    const double powerExcellent = 3.36;   // close to SM3 (deep sleep)
     const double powerPoor = 20.7;       // fully ACTIVE
 
     if (power <= powerExcellent) return 1.0;
