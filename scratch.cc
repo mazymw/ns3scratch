@@ -1446,16 +1446,7 @@ double LteGymEnv::ScalePower(double power) {
 }
 
 double LteGymEnv::ScaleGlobalSinr(double sinrDb) {
-    if (sinrDb > 13.0) return 0.5;         // Acceptable but not prioritized
-    if (sinrDb > 5.0)  return 1.0;         // Strongly encouraged range
-
-    if (sinrDb >= 0.0)
-        return sinrDb / 5.0;               // Linearly scales from 0 to +1
-
-    if (sinrDb > -10.0)
-        return sinrDb / 10.0;              // Linearly scales from 0 to -1
-
-    return -1.0;                           // Very poor SINR
+    return std::tanh((sinrDb - 5.0) / 5.0);
 }
 
 // float LteGymEnv::GetReward()
@@ -1518,9 +1509,9 @@ float LteGymEnv::GetReward()
     std::cout << "GetReward() called" << std::endl;
     uint32_t numSbs = m_energyModels.size();  // count your SBS nodes
     std::cout << "number of BS" << numSbs << std::endl;
-    const double raw_w_power = 0.5;
+    const double raw_w_power = 0.4;
     const double w_power = raw_w_power / numSbs;  // normalized weight
-    const double w_sinr = 0.6;
+    const double w_sinr = 0.7;
     const double switching_penalty_weight = 0.2 / numSbs;
 
 
@@ -1547,8 +1538,13 @@ float LteGymEnv::GetReward()
     double scaledGlobalSinr = ScaleGlobalSinr(m_globalAvgSINR);
     totalReward += w_sinr * scaledGlobalSinr;
 
-    std::cout << "[Global Average SINR] " << m_globalAvgSINR 
-              << " dB (scaled = " << scaledGlobalSinr << ")" << std::endl;
+    std::cout << "[Global Average SINR] " << m_globalAvgSINR;
+            //   << " dB (scaled = " << scaledGlobalSinr << ")" << std::endl;
+
+    if (m_globalAvgSINR < 0.0) {
+        std::cout << "[Penalty] Global SINR below 0 dB. Heavy penalty applied.\n";
+        totalReward -= 2.0;
+    }
 
     return totalReward;
 }

@@ -36,8 +36,8 @@ class FastDDQNAgent:
         self.gamma = 0.98
         self.epsilon = 1.0
         self.epsilon_min = 0.05
-        self.epsilon_decay = 0.9999266522
-        self.lr = 0.0003
+        self.epsilon_decay = 0.99996274
+        self.lr = 0.001
 
         self.model = self._build_model()
         self.target_model = self._build_model()
@@ -61,16 +61,19 @@ class FastDDQNAgent:
         self.memory.append((state, int(action), reward, next_state, done))
  
     def act(self, state, episode_num):
-        MASKING_THRESHOLD = 30  # Apply masking only for first 30 episodes
+        MASKING_THRESHOLD = 20  # Apply masking only for first 20 episodes
 
         is_transitioning = state[-1]  # last dim in your state
         current_state = int(state[1])  # current SBS state
 
         # Apply masking only during early episodes
-        if episode_num <= MASKING_THRESHOLD and is_transitioning:
-            valid_actions = [current_state]
+        if episode_num <= MASKING_THRESHOLD:
+            if is_transitioning:
+                valid_actions = [current_state]
+            else:
+                valid_actions = [0, 1, 2]  # Exclude SM3 (action 3)
         else:
-            valid_actions = list(range(self.action_size))
+            valid_actions = list(range(self.action_size)) 
 
         if np.random.rand() < self.epsilon:
             return random.choice(valid_actions)
