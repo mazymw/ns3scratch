@@ -61,31 +61,28 @@ class FastDDQNAgent:
         self.memory.append((state, int(action), reward, next_state, done))
  
     def act(self, state, episode_num):
-        MASKING_THRESHOLD = 20  # Apply masking only for first 20 episodes
-
         is_transitioning = state[-1]  # last dim in your state
         current_state = int(state[1])  # current SBS state
 
-        # Apply masking only during early episodes
-        if episode_num <= MASKING_THRESHOLD:
-            if is_transitioning:
-                valid_actions = [current_state]
-            else:
-                valid_actions = [0, 1, 2]  # Exclude SM3 (action 3)
+        if is_transitioning:
+            valid_actions = [0]  # force action 0 (ACTIVE) during transition
+            # print(f"Agent {self.agent_id} locked to action {valid_actions} during transition.")
+        elif episode_num <= 20:
+            valid_actions = [0, 1, 2]  # SM3 disabled early on
         else:
-            valid_actions = list(range(self.action_size)) 
+            valid_actions = list(range(self.action_size))  # full access
 
         if np.random.rand() < self.epsilon:
             return random.choice(valid_actions)
 
         q_values = self.model.predict(state[np.newaxis], verbose=0)[0]
         
-        # Apply masking to q_values
         masked_q = np.full_like(q_values, -np.inf)
         for a in valid_actions:
             masked_q[a] = q_values[a]
 
         return np.argmax(masked_q)
+
 
 
     def replay(self):
@@ -233,7 +230,7 @@ if __name__ == "__main__":
     sbs_state_log = {i: [] for i in range(N_AGENTS)} 
     print("==== Fast Multi-Agent DDQN Training Start ====")
     for ep in range(1, EPISODES+1):
-        sim_seed = ep  # or random.randint(...) if variability is more important
+        sim_seed = 1  # or random.randint(...) if variability is more important
         env = ns3env.Ns3Env(port=5555, stepTime=0.01, startSim=True, simSeed=sim_seed)
         obs = env.reset()
         agent_states = wrapper.split_obs(obs)
