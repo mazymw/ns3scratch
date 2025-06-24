@@ -627,7 +627,8 @@ void UpdateUeActivity(uint64_t imsi, double simulationTime)
         double simTimeHours = (now / simulationTime) * 24.0;
         // std::cout << "SimTime: " << now << "s  (Hour of day: " << simTimeHours << ")" << std::endl;
         double activeProbability;
-        if (simTimeHours >= 0 && simTimeHours < 6) activeProbability = 0.1;
+        if (simTimeHours >= 0 && simTimeHours < 4) activeProbability = 0.05;
+        else if (simTimeHours >= 4 && simTimeHours < 6) activeProbability = 0.1;
         else if (simTimeHours >= 6 && simTimeHours < 9) activeProbability = 0.4;
         else if (simTimeHours >= 9 && simTimeHours < 17) activeProbability = 0.8;
         else if (simTimeHours >= 17 && simTimeHours < 22) activeProbability = 0.5;
@@ -1446,7 +1447,14 @@ double LteGymEnv::ScalePower(double power) {
 }
 
 double LteGymEnv::ScaleGlobalSinr(double sinrDb) {
-    return std::tanh((sinrDb - 5.0) / 5.0);
+    if (sinrDb <= 0.0)
+        return -1.0;  // Strong penalty for very low SINR
+    else if (sinrDb < 5.0)
+        return (sinrDb - 0.0) / 5.0 - 1.0;  // Scale from -1 to 0
+    else if (sinrDb <= 10.0)
+        return (sinrDb - 5.0) / 5.0;  // Scale from 0 to +1
+    else
+        return 1.0;  // Flat reward: no incentive beyond 10 dB
 }
 
 // float LteGymEnv::GetReward()
@@ -1512,7 +1520,7 @@ float LteGymEnv::GetReward()
     const double raw_w_power = 0.4;
     const double w_power = raw_w_power / numSbs;  // normalized weight
     const double w_sinr = 0.7;
-    const double switching_penalty_weight = 0.2 / numSbs;
+    const double switching_penalty_weight = 0.0001 / numSbs;
 
 
     float totalReward = 0.0;

@@ -14,7 +14,7 @@ import csv
 BATCH_SIZE = 128
 TARGET_UPDATE_FREQ = 100 
 MEM_SIZE = 100000
-EPISODES = 120
+EPISODES = 150
 MAX_STEPS = 1000
 N_AGENTS = 3
 STATE_DIM_PER_AGENT = 5
@@ -36,7 +36,7 @@ class FastDDQNAgent:
         self.gamma = 0.98
         self.epsilon = 1.0
         self.epsilon_min = 0.05
-        self.epsilon_decay = 0.99996274
+        self.epsilon_decay = 0.99997004
         self.lr = 0.001
 
         self.model = self._build_model()
@@ -230,7 +230,7 @@ if __name__ == "__main__":
     sbs_state_log = {i: [] for i in range(N_AGENTS)} 
     print("==== Fast Multi-Agent DDQN Training Start ====")
     for ep in range(1, EPISODES+1):
-        sim_seed = 1  # or random.randint(...) if variability is more important
+        sim_seed = ep  # or random.randint(...) if variability is more important
         env = ns3env.Ns3Env(port=5555, stepTime=0.01, startSim=True, simSeed=sim_seed)
         obs = env.reset()
         agent_states = wrapper.split_obs(obs)
