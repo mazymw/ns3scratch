@@ -14,7 +14,7 @@ import csv
 BATCH_SIZE = 128
 TARGET_UPDATE_FREQ = 100 
 MEM_SIZE = 100000
-EPISODES = 120
+EPISODES = 3
 MAX_STEPS = 1000
 N_AGENTS = 3
 STATE_DIM_PER_AGENT = 5
@@ -192,12 +192,14 @@ class MultiAgentWrapper:
 def simulate_baseline_energy_and_sinr(env, episodes, max_steps):
     baseline_energy_per_episode = []
     baseline_sinr_per_episode = []
+    baseline_power_per_episode = []
 
     for ep in range(episodes):
         obs = env.reset()
         done = False
         step_count = 0
         total_energy = 0.0
+        total_power = 0.0
         sinr_sum = 0.0
         sinr_steps = 0
 
@@ -209,6 +211,7 @@ def simulate_baseline_energy_and_sinr(env, episodes, max_steps):
             info_parts = dict(item.split("=") for item in info_str.split(";"))
             total_energy = float(info_parts.get("total_energy", 0.0))
             global_sinr = float(info_parts.get("global_sinr", 0.0))
+            total_power = float(info_parts.get("total_power", 0.0))
 
             sinr_sum += global_sinr
             sinr_steps += 1
@@ -216,9 +219,10 @@ def simulate_baseline_energy_and_sinr(env, episodes, max_steps):
 
         avg_sinr = sinr_sum / sinr_steps if sinr_steps else 0
         baseline_energy_per_episode.append(total_energy)
+        baseline_power_per_episode.append(total_power)
         baseline_sinr_per_episode.append(avg_sinr)
 
-    return baseline_energy_per_episode, baseline_sinr_per_episode
+    return baseline_energy_per_episode, baseline_sinr_per_episode, baseline_power_per_episode
 
 
 
@@ -238,6 +242,7 @@ if __name__ == "__main__":
     rewards_history, avg_rewards_per_episode = [], []
     step_rewards = []
     total_energy_per_episode = []
+    total_power_per_episode = []
     avg_sbs_sinr_per_episode = []
     # avg_macro_sinr_per_episode = []
     sbs_state_log = {i: [] for i in range(N_AGENTS)} 
@@ -253,6 +258,7 @@ if __name__ == "__main__":
         episode_rewards = np.zeros(N_AGENTS)
         step_count = 0
         current_episode_energy = 0.0
+        current_episode_power = 0.0
         sbs_sinr_sum, macro_sinr_sum, sinr_step_count = 0.0, 0.0, 0
 
         while not done and step_count < MAX_STEPS:
@@ -271,7 +277,9 @@ if __name__ == "__main__":
             
             energy_value = float(info_parts.get("total_energy", 0.0))
             global_sinr_value = float(info_parts.get("global_sinr", 0.0))
+            power_value = float(info_parts.get("total_power", 0.0))
             current_episode_energy = energy_value
+            current_episode_power = power_value
             sinr_step_count += 1
             sbs_sinr_sum += global_sinr_value
 
@@ -292,6 +300,7 @@ if __name__ == "__main__":
         rewards_history.append(episode_rewards)
         avg_rewards_per_episode.append(avg_reward)
         total_energy_per_episode.append(current_episode_energy)
+        total_power_per_episode.append(current_episode_power)
         avg_sbs_sinr_per_episode.append(sbs_sinr_sum / sinr_step_count)
         # avg_macro_sinr_per_episode.append(macro_sinr_sum / sinr_step_count)
 
@@ -368,6 +377,7 @@ if __name__ == "__main__":
     # os.environ["NS3_BASELINE"] = "0"
 
     baseline_energy_per_episode = []
+    baseline_power_per_episode = []
     baseline_sinr_per_episode = []
 
     os.environ["NS3_BASELINE"] = "1"
@@ -377,8 +387,9 @@ if __name__ == "__main__":
 
         
         env = ns3env.Ns3Env(port=5555, stepTime=0.01, startSim=True, simSeed=ep)
-        energy, sinr = simulate_baseline_energy_and_sinr(env, 1, MAX_STEPS)
+        energy, sinr, power = simulate_baseline_energy_and_sinr(env, 1, MAX_STEPS)
         baseline_energy_per_episode.extend(energy)
+        baseline_power_per_episode.append(power)
         baseline_sinr_per_episode.extend(sinr)
         env.close()
         
@@ -388,7 +399,9 @@ if __name__ == "__main__":
 
     # === Save energy results ===
     np.save("rl_energy_per_episode.npy", np.array(total_energy_per_episode))
+    np.save("rl_energy_per_episode.npy", np.array(total_power_per_episode))
     np.save("baseline_energy_per_episode.npy", np.array(baseline_energy_per_episode))
+    np.save("baseline_power_per_episode.npy", np.array(baseline_power_per_episode))
     np.save("baseline_sinr_per_episode.npy", np.array(baseline_sinr_per_episode))
 
     # === Calculate energy efficiency (bits/J) ===
@@ -408,6 +421,19 @@ if __name__ == "__main__":
     plt.grid(True)
     plt.tight_layout()
     plt.savefig("energy_comparison.png")
+    plt.show()
+
+        # === Plot: Power Consumption Comparison ===
+    plt.figure(figsize=(10,6))
+    plt.plot(total_power_per_episode, label="With RL (DDQN)")
+    plt.plot(baseline_power_per_episode, label="Baseline (Always Active)")
+    plt.xlabel("Episode")
+    plt.ylabel("Total Power (Watts)")
+    plt.title("Power Comparison")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig("power_comparison.png")
     plt.show()
 
     # === Plot: SINR Comparison ===

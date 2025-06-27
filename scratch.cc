@@ -1692,20 +1692,26 @@ bool LteGymEnv::GetGameOver()
 
 std::string LteGymEnv::GetExtraInfo()
 {
+    std::cout << "GetExtraInfo() called" << std::endl;
     // === Total Energy ===
     double totalEnergy = 0.0;
+    double totalPower = 0.0;
     for (const auto& [sbsId, model] : m_energyModels)
     {
         totalEnergy += model->GetTotalEnergyConsumption();
+        totalPower += model->GetTotalPowerConsumption();
     }
 
     // === Use directly the global SINR ===
     double globalSinr = m_globalAvgSINR;
+    int activeUeCount = m_currentConnectedUeCount;
 
     // === Pack into ExtraInfo string ===
     std::ostringstream oss;
     oss << "total_energy=" << totalEnergy
-        << ";global_sinr=" << globalSinr;
+        << ";global_sinr=" << globalSinr
+        << ";active_ue=" << activeUeCount
+        << ";total_power=" << totalPower;
 
     return oss.str();
 }
