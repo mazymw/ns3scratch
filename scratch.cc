@@ -1861,7 +1861,7 @@ int main(int argc, char *argv[])
 
     // Macro eNB
     mobility.SetPositionAllocator("ns3::GridPositionAllocator",
-        "MinX", DoubleValue(500.0), "MinY", DoubleValue(0.0),
+        "MinX", DoubleValue(1250.0), "MinY", DoubleValue(400.0),
         "DeltaX", DoubleValue(20.0), "GridWidth", UintegerValue(1),
         "LayoutType", StringValue("RowFirst"));
     mobility.Install(macroEnb);
@@ -1918,7 +1918,7 @@ int main(int argc, char *argv[])
         Ptr<LteEnbNetDevice> enbDev = macroEnbLteDevs.Get (i)->GetObject<LteEnbNetDevice> ();
         Ptr<LteEnbPhy>       enbPhy = enbDev->GetPhy ();
 
-        enbPhy->SetTxPower (30.0);   // value is in dBm
+        enbPhy->SetTxPower (43.0);   // value is in dBm
     }
     InitializeSbsTxPower ();
     
