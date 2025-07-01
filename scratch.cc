@@ -1825,18 +1825,18 @@ int main(int argc, char *argv[])
     uePositionAlloc->SetAttribute("Y", StringValue("ns3::UniformRandomVariable[Min=800.0|Max=1000.0]"));
 
     // Configure the UE MobilityHelper with RandomWaypointMobilityModel
-    // MobilityHelper ueMobility;
-    // ueMobility.SetMobilityModel("ns3::RandomWaypointMobilityModel",
-    //     "Speed", StringValue("ns3::UniformRandomVariable[Min=1.0|Max=50.0]"),
-    //     "Pause", StringValue("ns3::ConstantRandomVariable[Constant=0.5]"),
-    //     "PositionAllocator", PointerValue(uePositionAlloc));
-    // ueMobility.SetPositionAllocator(uePositionAlloc);
-    // ueMobility.Install(ueNodes);
-
     MobilityHelper ueMobility;
-    ueMobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
-    ueMobility.SetPositionAllocator(uePositionAlloc); // for non-manual UEs
+    ueMobility.SetMobilityModel("ns3::RandomWaypointMobilityModel",
+        "Speed", StringValue("ns3::UniformRandomVariable[Min=1.0|Max=50.0]"),
+        "Pause", StringValue("ns3::ConstantRandomVariable[Constant=0.5]"),
+        "PositionAllocator", PointerValue(uePositionAlloc));
+    ueMobility.SetPositionAllocator(uePositionAlloc);
     ueMobility.Install(ueNodes);
+
+    // MobilityHelper ueMobility;
+    // ueMobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
+    // ueMobility.SetPositionAllocator(uePositionAlloc); // for non-manual UEs
+    // ueMobility.Install(ueNodes);
 
     // Override position of UE[0] and UE[1]
     for (uint32_t i = 0; i < ueNodes.GetN(); ++i) {
