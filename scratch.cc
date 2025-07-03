@@ -1853,7 +1853,7 @@ int main(int argc, char *argv[])
 
         // Log IMSI + position
         uint32_t imsi = i + 1;
-        LogUePositions(ueNode, imsi);
+        // LogUePositions(ueNode, imsi);
     }
 
 
