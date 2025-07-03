@@ -1821,7 +1821,7 @@ int main(int argc, char *argv[])
     // }
     // Create Position Allocator separately
     Ptr<PositionAllocator> uePositionAlloc = CreateObject<RandomRectanglePositionAllocator>();
-    uePositionAlloc->SetAttribute("X", StringValue("ns3::UniformRandomVariable[Min=0.0|Max=3500.0]"));
+    uePositionAlloc->SetAttribute("X", StringValue("ns3::UniformRandomVariable[Min=0.0|Max=2500.0]"));
     uePositionAlloc->SetAttribute("Y", StringValue("ns3::UniformRandomVariable[Min=800.0|Max=1000.0]"));
 
     // Configure the UE MobilityHelper with RandomWaypointMobilityModel
@@ -1853,7 +1853,7 @@ int main(int argc, char *argv[])
 
         // Log IMSI + position
         uint32_t imsi = i + 1;
-        // LogUePositions(ueNode, imsi);
+        LogUePositions(ueNode, imsi);
     }
 
 
