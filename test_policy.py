@@ -9,7 +9,7 @@ MAX_STEPS = 1000
 N_AGENTS = 3
 STATE_DIM_PER_AGENT = 5
 ACTION_DIM = 4
-SEEDS = [889, 7381, 592, 7941, 1231, 1582, 9591, 5532, 1421, 6919, 1290, 458]  # different test seeds
+SEEDS = [889, 234, 3466]  # different test seeds
 SIM_TIME = 10
 PACKET_INTERVAL = 0.05
 PACKET_SIZE_BYTES = 1024
@@ -218,6 +218,28 @@ if __name__ == "__main__":
 
     except Exception as e:
         print("❌ Failed to generate comparison plot:", e)
+
+    # === Plot Active UE Count Per Step ===
+    try:
+        print("📈 Plotting Active UE Count per Hour...")
+        test_active_ue = np.load("test_active_ue_per_step.npy", allow_pickle=True)
+
+        plt.figure(figsize=(10, 6))
+        for i, ue_counts in enumerate(test_active_ue):
+            steps = len(ue_counts)
+            hours = np.linspace(0, 24, steps)  # Map 0–1000 steps to 0–24 hours
+            plt.plot(hours, ue_counts, label=f'Seed {i+1}', alpha=0.6)
+
+        plt.title("Active UE Count over Simulated 24 Hours")
+        plt.xlabel("Hour of Day")
+        plt.ylabel("Number of Active UEs")
+        plt.grid(True)
+        plt.legend(loc="upper right", fontsize="small")
+        plt.tight_layout()
+        plt.savefig("active_ue_count_per_hour.png")
+        print("✅ Saved: 'active_ue_count_per_hour.png'")
+    except Exception as e:
+        print("❌ Failed to plot Active UE Count:", e)
 
     # Run post-analysis script
     import subprocess

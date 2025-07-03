@@ -23,8 +23,8 @@ ACTION_DIM = 4
 # Environment parameters
 NUM_UES = 30
 SIM_TIME = 10
-PACKET_INTERVAL = 0.05
-PACKET_SIZE_BYTES = 1024
+PACKET_INTERVAL = 0.02778  # 36 packets per second
+PACKET_SIZE_BYTES = 1400
 
 class FastDDQNAgent:
     def __init__(self, state_size, action_size, agent_id):
@@ -397,6 +397,10 @@ if __name__ == "__main__":
 
     os.environ["NS3_BASELINE"] = "0"
 
+    packets_per_ue = SIM_TIME / PACKET_INTERVAL
+    total_packets = packets_per_ue * NUM_UES
+    total_bits = total_packets * PACKET_SIZE_BYTES * 8
+    
     # === Save energy results ===
     np.save("rl_energy_per_episode.npy", np.array(total_energy_per_episode))
     np.save("rl_energy_per_episode.npy", np.array(total_power_per_episode))
@@ -467,9 +471,7 @@ if __name__ == "__main__":
     plt.savefig("energy_efficiency_comparison.png")
     plt.show()
 
-    packets_per_ue = SIM_TIME / PACKET_INTERVAL
-    total_packets = packets_per_ue * NUM_UES
-    total_bits = total_packets * PACKET_SIZE_BYTES * 8
+
     ee_per_episode = [total_bits / energy for energy in total_energy_per_episode]
 
 
