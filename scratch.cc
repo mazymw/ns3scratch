@@ -1861,7 +1861,7 @@ int main(int argc, char *argv[])
 
     // Macro eNB
     mobility.SetPositionAllocator("ns3::GridPositionAllocator",
-        "MinX", DoubleValue(1250.0), "MinY", DoubleValue(400.0),
+        "MinX", DoubleValue(1250.0), "MinY", DoubleValue(0.0),
         "DeltaX", DoubleValue(20.0), "GridWidth", UintegerValue(1),
         "LayoutType", StringValue("RowFirst"));
     mobility.Install(macroEnb);

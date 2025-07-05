@@ -14,7 +14,7 @@ import csv
 BATCH_SIZE = 128
 TARGET_UPDATE_FREQ = 100 
 MEM_SIZE = 100000
-EPISODES = 150
+EPISODES = 2
 MAX_STEPS = 1000
 N_AGENTS = 3
 STATE_DIM_PER_AGENT = 5
@@ -98,7 +98,7 @@ class FastDDQNAgent:
 
 
 
-    def replay(self):
+    def replay(self, episode_num=None):
         if len(self.memory) < BATCH_SIZE:
             return None
         minibatch = random.sample(self.memory, BATCH_SIZE)
@@ -126,8 +126,14 @@ class FastDDQNAgent:
         if self.train_steps % TARGET_UPDATE_FREQ == 0:
             self.update_target_network()
 
-        if self.epsilon > self.epsilon_min:
-            self.epsilon *= self.epsilon_decay
+        if episode_num is not None:
+            if episode_num <= 80:
+                if self.epsilon > self.epsilon_min:
+                    self.epsilon *= self.epsilon_decay
+            elif episode_num <= 120:
+                self.epsilon = self.epsilon_min
+            else:
+                self.epsilon = 0.0
         return float(loss)
 
     # === FULL SAVE ===
@@ -169,9 +175,9 @@ class MultiAgentWrapper:
         for i, agent in enumerate(self.agents):
             agent.remember(agent_states[i], actions[i], rewards[i], next_agent_states[i], done)
 
-    def replay(self):
+    def replay(self, episode_num=None):
         for agent in self.agents:
-            agent.replay()
+            agent.replay(episode_num)
 
     def save_all(self, base_path="agent"):
         for i, agent in enumerate(self.agents):
@@ -290,7 +296,7 @@ if __name__ == "__main__":
             rewards = [reward] * N_AGENTS if isinstance(reward, (float, int)) else list(reward)
             next_agent_states = wrapper.split_obs(next_obs)
             wrapper.remember(agent_states, actions, rewards, next_agent_states, done)
-            wrapper.replay()
+            wrapper.replay(ep)
             agent_states = next_agent_states
             episode_rewards += rewards
             step_count += 1
