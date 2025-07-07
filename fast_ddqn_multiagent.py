@@ -130,7 +130,7 @@ class FastDDQNAgent:
             if episode_num <= 80:
                 if self.epsilon > self.epsilon_min:
                     self.epsilon *= self.epsilon_decay
-            elif episode_num <= 120:
+            elif episode_num <= 150:
                 self.epsilon = self.epsilon_min
             else:
                 self.epsilon = 0.0

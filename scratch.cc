@@ -1822,7 +1822,7 @@ int main(int argc, char *argv[])
     // Create Position Allocator separately
     Ptr<PositionAllocator> uePositionAlloc = CreateObject<RandomRectanglePositionAllocator>();
     uePositionAlloc->SetAttribute("X", StringValue("ns3::UniformRandomVariable[Min=0.0|Max=2500.0]"));
-    uePositionAlloc->SetAttribute("Y", StringValue("ns3::UniformRandomVariable[Min=800.0|Max=1000.0]"));
+    uePositionAlloc->SetAttribute("Y", StringValue("ns3::UniformRandomVariable[Min=1300.0|Max=1500.0]"));
 
     // Configure the UE MobilityHelper with RandomWaypointMobilityModel
     MobilityHelper ueMobility;
@@ -1868,7 +1868,7 @@ int main(int argc, char *argv[])
 
     // Small cells
     mobility.SetPositionAllocator("ns3::GridPositionAllocator",
-        "MinX", DoubleValue(250.0), "MinY", DoubleValue(750.0),
+        "MinX", DoubleValue(250.0), "MinY", DoubleValue(1250.0),
         "DeltaX", DoubleValue(1000.0), "GridWidth", UintegerValue(numSmallCells),
         "LayoutType", StringValue("RowFirst"));
     mobility.Install(smallCellEnbs);
@@ -1918,7 +1918,7 @@ int main(int argc, char *argv[])
         Ptr<LteEnbNetDevice> enbDev = macroEnbLteDevs.Get (i)->GetObject<LteEnbNetDevice> ();
         Ptr<LteEnbPhy>       enbPhy = enbDev->GetPhy ();
 
-        enbPhy->SetTxPower (43.0);   // value is in dBm
+        enbPhy->SetTxPower (33.0);   // value is in dBm
     }
     InitializeSbsTxPower ();
     
