@@ -1636,11 +1636,7 @@ bool LteGymEnv::ExecuteActions(Ptr<OpenGymDataContainer> action)
 
     size_t i = 0;
     for (const auto& [sbsId, model] : m_energyModels) {
-        // model->SetState((SmallCellEnergyModel::SmallCellState)actions[i]);
-        if (actions[i] == 0)
-            model->SetState(SmallCellEnergyModel::ACTIVE);
-        else
-            model->SetState(SmallCellEnergyModel::SM3); 
+        model->SetState((SmallCellEnergyModel::SmallCellState)actions[i]);
         double txPowerW = model->GetTransmissionPower();
         double txPowerDbm = (txPowerW > 0) ? txPowerW : 0;
 

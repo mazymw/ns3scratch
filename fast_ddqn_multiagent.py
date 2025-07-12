@@ -18,7 +18,7 @@ EPISODES = 150
 MAX_STEPS = 1000
 N_AGENTS = 3
 STATE_DIM_PER_AGENT = 5
-ACTION_DIM = 2
+ACTION_DIM = 4
 
 # Environment parameters
 NUM_UES = 30
@@ -69,14 +69,14 @@ class FastDDQNAgent:
             valid_actions = [0]  # Lock to ACTIVE
         else:
             # === Progressive sleep mode unlocking ===
-            # if episode_num <= 5:
-            #     valid_actions = [0]  # Only ACTIVE
-            # elif episode_num <= 10:
-            #     valid_actions = [0, 1]  # ACTIVE + SM1
-            # elif episode_num <= 15:
-            #     valid_actions = [0, 1, 2]  # ACTIVE + SM1 + SM2
-            # else:
-                valid_actions = [0, 1]  # Full access (SM3 unlocked)
+            if episode_num <= 5:
+                valid_actions = [0]  # Only ACTIVE
+            elif episode_num <= 10:
+                valid_actions = [0, 1]  # ACTIVE + SM1
+            elif episode_num <= 15:
+                valid_actions = [0, 1, 2]  # ACTIVE + SM1 + SM2
+            else:
+                valid_actions = [0, 1, 2, 3]  # Full access (SM3 unlocked)
 
         # === Optional: epsilon bump when unlocking new mode ===
         # Uncomment if needed to encourage exploration after unlock

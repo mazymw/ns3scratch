@@ -2,6 +2,7 @@ import numpy as np
 import tensorflow as tf
 from ns3gym import ns3env
 from fast_ddqn_multiagent import MultiAgentWrapper
+import random
 
 # === Test Configuration ===
 TEST_EPISODES = 100
@@ -9,10 +10,11 @@ MAX_STEPS = 1000
 N_AGENTS = 3
 STATE_DIM_PER_AGENT = 5
 ACTION_DIM = 4
-SEEDS = [889, 234, 3466]  # different test seeds
+random.seed(42) 
+SEEDS = random.sample(range(201, 9999), 3) 
 SIM_TIME = 10
-PACKET_INTERVAL = 0.05
-PACKET_SIZE_BYTES = 1024
+PACKET_INTERVAL = 0.02778  # 36 packets per second
+PACKET_SIZE_BYTES = 1400
 
 def run_test_episode(wrapper, seed):
     env = ns3env.Ns3Env(port=5555, stepTime=0.01, startSim=True, simSeed=seed)
@@ -154,26 +156,28 @@ if __name__ == "__main__":
 
     # Plot Reward
     import matplotlib.pyplot as plt
-    try:
-        print("📈 Plotting total reward per seed...")
-        rewards = np.load("test_total_reward.npy")
-        plt.figure(figsize=(8, 5))
-        plt.bar(range(len(rewards)), rewards, color='purple')
-        plt.title("Total Reward per Seed (Test Episodes)")
-        plt.xlabel("Test Case Index")
-        plt.ylabel("Cumulative Reward")
-        plt.grid(True)
-        plt.tight_layout()
-        plt.savefig("test_reward_summary.png")
-        print("✅ Reward plot saved as 'test_reward_summary.png'")
-    except Exception as e:
-        print("❌ Failed to plot total reward:", e)
+    # try:
+    #     print("📈 Plotting total reward per seed...")
+    #     rewards = np.load("test_total_reward.npy")
+    #     plt.figure(figsize=(8, 5))
+    #     plt.bar(range(len(rewards)), rewards, color='purple')
+    #     plt.title("Total Reward per Seed (Test Episodes)")
+    #     plt.xlabel("Test Case Index")
+    #     plt.ylabel("Cumulative Reward")
+    #     plt.grid(True)
+    #     plt.tight_layout()
+    #     plt.savefig("test_reward_summary.png")
+    #     print("✅ Reward plot saved as 'test_reward_summary.png'")
+    # except Exception as e:
+    #     print("❌ Failed to plot total reward:", e)
 
     # === Comparison Plot: Test vs Baseline ===
     try:
-        print("📊 Plotting Test vs Baseline Comparison...")
+        print("📊 Plotting Test vs Baseline Comparison (Line Graphs)...")
         import matplotlib.pyplot as plt
+        import numpy as np
 
+        # Load data
         test_energy = np.load("test_energy_per_episode.npy")
         test_sinr = np.load("test_sinr_per_episode.npy")
         test_efficiency = np.load("test_efficiency_per_episode.npy")
@@ -183,52 +187,100 @@ if __name__ == "__main__":
         baseline_sinr = np.load("baseline_sinr.npy")
         baseline_reward = np.load("baseline_reward.npy")
 
-        # Extend arrays to include baseline mean
-        energies = np.append(test_energy, np.mean(baseline_energy))
-        sinrs = np.append(test_sinr, np.mean(baseline_sinr))
-        efficiencies = np.append(test_efficiency, np.mean(test_efficiency))  # placeholder (baseline not available)
-        rewards = np.append(test_reward, np.mean(baseline_reward))
+        # === Compute Baseline Energy Efficiency (based on total bits transmitted) ===
+        packets_per_ue = SIM_TIME / PACKET_INTERVAL       # e.g., 24 / (1/36) = 864 packets/UE
+        total_packets = packets_per_ue * 30               # 30 UEs
+        total_bits = total_packets * PACKET_SIZE_BYTES * 8
 
-        labels = [f"Seed {i+1}" for i in range(len(test_energy))] + ["Baseline"]
+        baseline_efficiency = np.array([
+            total_bits / energy if energy > 0 else 0.0
+            for energy in baseline_energy
+        ])
+        # === Plot Energy Efficiency ===
+        test_efficiency = np.array(test_efficiency)
 
-        fig, axs = plt.subplots(4, 1, figsize=(10, 16), constrained_layout=True)
+        # === x-axis: seeds (assumed same for both test and baseline) ===
+        seed_labels = [f"Seed {s}" for s in SEEDS]
+        x = np.arange(len(SEEDS))
 
-        axs[0].bar(labels, energies, color='skyblue')
-        axs[0].set_title("Total Energy Consumption (Test vs Baseline)")
-        axs[0].set_ylabel("Energy (J)")
+        # === Plot Total Energy ===
+        plt.figure(figsize=(8, 5))
+        plt.plot(x, test_energy, marker='o', label="Test (RL)", color=(1.0, 0.0, 0.0))
+        plt.plot(x, baseline_energy, marker='s', label="Baseline", color=(0.0, 1.0, 0.0))
+        plt.xticks(x, seed_labels)
+        plt.title("Total Energy Consumption per Seed")
+        plt.ylabel("Energy (J)")
+        plt.xlabel("Seed")
+        plt.grid(True)
+        plt.legend()
+        plt.tight_layout()
+        plt.savefig("line_energy_per_seed.png")
 
-        axs[1].bar(labels, sinrs, color='orange')
-        axs[1].set_title("Average SINR (Test vs Baseline)")
-        axs[1].set_ylabel("SINR (dB)")
+        # === Plot Average SINR ===
+        plt.figure(figsize=(8, 5))
+        plt.plot(x, test_sinr, marker='o', label="Test (RL)", color=(1.0, 0.0, 0.0))
+        plt.plot(x, baseline_sinr, marker='s', label="Baseline", color=(0.0, 1.0, 0.0))
+        plt.xticks(x, seed_labels)
+        plt.title("Average SINR per Seed")
+        plt.ylabel("SINR (dB)")
+        plt.xlabel("Seed")
+        plt.grid(True)
+        plt.legend()
+        plt.tight_layout()
+        plt.savefig("line_sinr_per_seed.png")
 
-        axs[2].bar(labels, efficiencies, color='green')
-        axs[2].set_title("Energy Efficiency (Test vs Baseline)")
-        axs[2].set_ylabel("Bits/Joule")
 
-        axs[3].bar(labels, rewards, color='purple')
-        axs[3].set_title("Total Reward (Test vs Baseline)")
-        axs[3].set_ylabel("Cumulative Reward")
+        # baseline_efficiency = np.array([np.sum(test_efficiency) / len(test_efficiency)] * len(SEEDS))  # Optional placeholder baseline
 
-        for ax in axs:
-            ax.set_xlabel("Scenario")
-            ax.grid(True)
+        plt.figure(figsize=(8, 5))
+        plt.plot(x, test_efficiency, marker='o', label="Test (RL)", color=(1.0, 0.0, 0.0))
+        plt.plot(x, baseline_efficiency, marker='s', label="Baseline (Avg)", color=(0.0, 1.0, 0.0))
+        plt.xticks(x, seed_labels)
+        plt.title("Energy Efficiency per Seed")
+        plt.ylabel("Bits/Joule")
+        plt.xlabel("Seed")
+        plt.grid(True)
+        plt.legend()
+        plt.tight_layout()
+        plt.savefig("line_efficiency_per_seed.png")
 
-        plt.savefig("test_vs_baseline_comparison.png")
-        print("✅ Comparison plot saved as 'test_vs_baseline_comparison.png'")
+        # === Plot Reward ===
+        plt.figure(figsize=(8, 5))
+        plt.plot(x, test_reward, marker='o', label="Test (RL)", color=(1.0, 0.0, 0.0))
+        plt.plot(x, baseline_reward, marker='s', label="Baseline", color=(0.0, 1.0, 0.0))
+        plt.xticks(x, seed_labels)
+        plt.title("Total Reward per Seed")
+        plt.ylabel("Cumulative Reward")
+        plt.xlabel("Seed")
+        plt.grid(True)
+        plt.legend()
+        plt.tight_layout()
+        plt.savefig("line_reward_per_seed.png")
+
+        print("✅ Saved line plots: energy, sinr, efficiency, and reward.")
 
     except Exception as e:
-        print("❌ Failed to generate comparison plot:", e)
+        print("❌ Failed to generate line comparison plots:", e)
 
     # === Plot Active UE Count Per Step ===
     try:
         print("📈 Plotting Active UE Count per Hour...")
         test_active_ue = np.load("test_active_ue_per_step.npy", allow_pickle=True)
 
+        # Bright red, green, blue in order
+        bright_colors = [
+            (1.0, 0.0, 0.0),  # Red
+            (0.0, 1.0, 0.0),  # Green
+            (0.0, 0.0, 1.0),  # Blue
+        ]
+
         plt.figure(figsize=(10, 6))
         for i, ue_counts in enumerate(test_active_ue):
             steps = len(ue_counts)
-            hours = np.linspace(0, 24, steps)  # Map 0–1000 steps to 0–24 hours
-            plt.plot(hours, ue_counts, label=f'Seed {i+1}', alpha=0.6)
+            hours = np.linspace(0, 24, steps)  # Map steps to 0–24 hours
+            seed = SEEDS[i]
+            color = bright_colors[i] if i < len(bright_colors) else "black"
+            plt.plot(hours, ue_counts, label=f'Seed {seed}', color=color, alpha=0.8)
 
         plt.title("Active UE Count over Simulated 24 Hours")
         plt.xlabel("Hour of Day")
@@ -240,6 +292,7 @@ if __name__ == "__main__":
         print("✅ Saved: 'active_ue_count_per_hour.png'")
     except Exception as e:
         print("❌ Failed to plot Active UE Count:", e)
+
 
     # Run post-analysis script
     import subprocess
