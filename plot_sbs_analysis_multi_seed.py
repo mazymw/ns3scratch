@@ -60,31 +60,7 @@ plt.legend(title="Base Station")
 plt.tight_layout()
 plt.savefig("sbs_state_distribution_avg.png")
 
-# === 2. Boxplot: Active UEs by SBS state ===
-long_df = pd.melt(
-    df,
-    id_vars=["Seed", "Step", "Active_UEs"],
-    value_vars=sbs_states,
-    var_name="SBS",
-    value_name="State"
-)
-state_map = {0: "ACTIVE", 1: "SM1", 2: "SM2", 3: "SM3"}
-long_df["State_Label"] = long_df["State"].map(state_map)
 
-box_palette = {state: bright_colors[state] for state in ["ACTIVE", "SM1", "SM2", "SM3"]}
-
-plt.figure(figsize=(10, 6))
-sns.boxplot(
-    x="State_Label", y="Active_UEs", data=long_df,
-    order=["ACTIVE", "SM1", "SM2", "SM3"],
-    palette=box_palette
-)
-plt.title("Distribution of Active UEs by SBS State")
-plt.xlabel("SBS State")
-plt.ylabel("Number of Active UEs")
-plt.grid(True)
-plt.tight_layout()
-plt.savefig("ue_count_by_state_multi_seed.png")
 
 # === 3. State Over Time: One File per SBS per Seed ===
 sbs_ids = [0, 1, 2]
@@ -98,7 +74,7 @@ for seed in SEEDS:
                  drawstyle="steps-post",
                  color=seed_colors.get(seed, "black"),
                  label=f"Seed {seed}")
-        plt.title(f"SBS {i} State Over Time (Seed {seed})")
+        plt.title(f"SBS {i+1} State Over Time (Seed {seed})")
         plt.ylabel("State")
         plt.xlabel("Hour of Day")
         plt.yticks([0, 1, 2, 3], ["ACTIVE", "SM1", "SM2", "SM3"])
@@ -106,7 +82,7 @@ for seed in SEEDS:
         plt.grid(True)
         plt.legend()
         plt.tight_layout()
-        plt.savefig(f"sbs{i}_state_seed{seed}.png")
+        plt.savefig(f"sbs{i+1}_state_seed{seed}.png")
         plt.close()
 
 # === 4. Combined Plot: All Seeds per SBS ===
@@ -120,7 +96,7 @@ for i in sbs_ids:
                  color=seed_colors.get(seed, "black"),
                  label=f"Seed {seed}",
                  alpha=0.7)
-    plt.title(f"SBS {i} State Over Time (All Seeds)")
+    plt.title(f"SBS {i+1} State Over Time (All Seeds)")
     plt.ylabel("State")
     plt.xlabel("Hour of Day")
     plt.yticks([0, 1, 2, 3], ["ACTIVE", "SM1", "SM2", "SM3"])
@@ -128,5 +104,5 @@ for i in sbs_ids:
     plt.grid(True)
     plt.legend()
     plt.tight_layout()
-    plt.savefig(f"sbs{i}_state_all_seeds.png")
+    plt.savefig(f"sbs{i+1}_state_all_seeds.png")
     plt.close()

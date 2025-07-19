@@ -11,7 +11,7 @@ N_AGENTS = 3
 STATE_DIM_PER_AGENT = 5
 ACTION_DIM = 4
 random.seed(42) 
-SEEDS = random.sample(range(201, 9999), 3) 
+SEEDS = random.sample(range(201, 9999), 50) 
 SIM_TIME = 10
 PACKET_INTERVAL = 0.02778  # 36 packets per second
 PACKET_SIZE_BYTES = 1400
@@ -203,55 +203,100 @@ if __name__ == "__main__":
         seed_labels = [f"Seed {s}" for s in SEEDS]
         x = np.arange(len(SEEDS))
 
-        # === Plot Total Energy ===
-        plt.figure(figsize=(8, 5))
-        plt.plot(x, test_energy, marker='o', label="Test (RL)", color=(1.0, 0.0, 0.0))
-        plt.plot(x, baseline_energy, marker='s', label="Baseline", color=(0.0, 1.0, 0.0))
-        plt.xticks(x, seed_labels)
-        plt.title("Total Energy Consumption per Seed")
+
+        # === Plot Total Energy===
+        plt.figure(figsize=(12, 6))
+        plt.plot(x, test_energy, marker='o', label="Test (RL)", color='red', linewidth=2)
+        plt.plot(x, baseline_energy, marker='s', label="Baseline", color='lime', linewidth=2)
+
+        # Axis and legend
+        # xtick_interval = 10
+        # tick_locs = x[::xtick_interval]
+        # tick_labels = [str(i) for i in tick_locs]
+        # plt.xticks(tick_locs, tick_labels)
+        plt.xlim(-0.5, 50.5)
+        plt.xticks(np.arange(0, 51, 10)) 
+        # plt.xticks(x, [str(i + 1) for i in x]) 
+        plt.title("Total Energy Consumption per Seed (Test vs Baseline)")
         plt.ylabel("Energy (J)")
-        plt.xlabel("Seed")
+        plt.xlabel("Seed (Iteration)")
         plt.grid(True)
-        plt.legend()
+        plt.legend(loc='lower left')
         plt.tight_layout()
         plt.savefig("line_energy_per_seed.png")
 
-        # === Plot Average SINR ===
-        plt.figure(figsize=(8, 5))
-        plt.plot(x, test_sinr, marker='o', label="Test (RL)", color=(1.0, 0.0, 0.0))
-        plt.plot(x, baseline_sinr, marker='s', label="Baseline", color=(0.0, 1.0, 0.0))
-        plt.xticks(x, seed_labels)
-        plt.title("Average SINR per Seed")
+        # === Plot Average SINR with Threshold Labels Positioned Above Lines ===
+        plt.figure(figsize=(12, 6))
+        plt.plot(x, test_sinr, marker='o', label="Test (RL)", color='red', linewidth=2)
+        plt.plot(x, baseline_sinr, marker='s', label="Baseline", color='lime', linewidth=2)
+
+        # Threshold lines with labels positioned just above
+        thresholds = [
+            (12.5, 'Excellent > 12.5 dB', 'purple'),
+            (10.0, 'Good 10–12.5 dB', 'brown'),
+            (7.0, 'Fair 7–10 dB', 'gold'),
+            (0.0, 'Poor < 7 dB', 'black')
+        ]
+
+        x_label_pos = x[-1] + 0.5  # Slightly to the right of the last seed
+
+        for y, label, color in thresholds:
+            plt.axhline(y=y, color=color, linestyle='--', linewidth=1.5)
+            plt.text(x_label_pos, y + 0.2, label, color=color, fontsize=10, va='bottom')
+
+        # plt.xticks(x, [str(i + 1) for i in x]) 
+        # xtick_interval = 10
+        # tick_locs = x[::xtick_interval]
+        # tick_labels = [str(i) for i in tick_locs]
+        # plt.xticks(tick_locs, tick_labels)
+        plt.xlim(-0.5, 50.5)
+        plt.xticks(np.arange(0, 51, 10)) 
+        plt.title("Average SINR per Seed (Test vs Baseline)")
+        plt.xlabel("Seed (Iteration)")
         plt.ylabel("SINR (dB)")
-        plt.xlabel("Seed")
         plt.grid(True)
-        plt.legend()
+        plt.legend(loc='lower left')
         plt.tight_layout()
         plt.savefig("line_sinr_per_seed.png")
 
 
         # baseline_efficiency = np.array([np.sum(test_efficiency) / len(test_efficiency)] * len(SEEDS))  # Optional placeholder baseline
 
-        plt.figure(figsize=(8, 5))
-        plt.plot(x, test_efficiency, marker='o', label="Test (RL)", color=(1.0, 0.0, 0.0))
-        plt.plot(x, baseline_efficiency, marker='s', label="Baseline (Avg)", color=(0.0, 1.0, 0.0))
-        plt.xticks(x, seed_labels)
-        plt.title("Energy Efficiency per Seed")
+        # === Plot Energy Efficiency per Seed (Test vs Baseline) ===
+        plt.figure(figsize=(12, 6))
+        plt.plot(x, test_efficiency, marker='o', label="Test (RL)", color='red', linewidth=2)
+        plt.plot(x, baseline_efficiency, marker='s', label="Baseline (Avg)", color='lime', linewidth=2)
+
+        # Axes and final touches
+        # plt.xticks(x, [str(i + 1) for i in x]) 
+        # xtick_interval = 10
+        # tick_locs = x[::xtick_interval]
+        # tick_labels = [str(i) for i in tick_locs]
+        # plt.xticks(tick_locs, tick_labels)
+        plt.xlim(-0.5, 50.5)
+        plt.xticks(np.arange(0, 51, 10)) 
+        plt.title("Energy Efficiency per Seed (Test vs Baseline)")
         plt.ylabel("Bits/Joule")
-        plt.xlabel("Seed")
+        plt.xlabel("Seed (Iteration)")
         plt.grid(True)
         plt.legend()
         plt.tight_layout()
         plt.savefig("line_efficiency_per_seed.png")
 
-        # === Plot Reward ===
+        # # === Plot Reward ===
         plt.figure(figsize=(8, 5))
         plt.plot(x, test_reward, marker='o', label="Test (RL)", color=(1.0, 0.0, 0.0))
         plt.plot(x, baseline_reward, marker='s', label="Baseline", color=(0.0, 1.0, 0.0))
-        plt.xticks(x, seed_labels)
-        plt.title("Total Reward per Seed")
+        # plt.xticks([])
+        # xtick_interval = 10
+        # tick_locs = x[::xtick_interval]
+        # tick_labels = [str(i) for i in tick_locs]
+        # plt.xticks(tick_locs, tick_labels)
+        plt.xlim(-0.5, 50.5)
+        plt.xticks(np.arange(0, 51, 10)) 
+        plt.title("Total Reward per Seed (Test vs Baseline)")
         plt.ylabel("Cumulative Reward")
-        plt.xlabel("Seed")
+        plt.xlabel("Seed (Iteration)")
         plt.grid(True)
         plt.legend()
         plt.tight_layout()

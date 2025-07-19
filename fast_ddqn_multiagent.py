@@ -524,13 +524,4 @@ if __name__ == "__main__":
     plt.savefig("avg_reward_per_episode.png")
     plt.show()
 
-    # === Auto-run SBS state plot script from parent folder ===
-    subprocess.run(["python3", "../plot_sbs_state_times.py"])
-
-    try:
-        print("📊 Plotting SBS state distribution...")
-        subprocess.run(["python3", "../plot_sbs_state_distribution.py"], check=True)
-        print("✅ SBS state distribution plot generated.")
-    except subprocess.CalledProcessError as e:
-        print("❌ Failed to generate SBS state distribution plot:", e)
 
