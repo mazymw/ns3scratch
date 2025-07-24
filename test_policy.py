@@ -29,7 +29,7 @@ def run_test_episode(wrapper, seed):
     total_reward = 0.0
 
     while step_count < MAX_STEPS:
-        actions = wrapper.act(agent_states, episode_num=TEST_EPISODES + 1)  # ε=0 now
+        actions = wrapper.act(agent_states, episode_num=TEST_EPISODES + 1)  
         next_obs, reward, done, info = env.step(np.array(actions, dtype=np.uint32))
 
         info_str = info if isinstance(info, str) else info[0]
@@ -157,7 +157,7 @@ if __name__ == "__main__":
     # Plot Reward
     import matplotlib.pyplot as plt
     # try:
-    #     print("📈 Plotting total reward per seed...")
+    #     print("Plotting total reward per seed...")
     #     rewards = np.load("test_total_reward.npy")
     #     plt.figure(figsize=(8, 5))
     #     plt.bar(range(len(rewards)), rewards, color='purple')
@@ -167,13 +167,13 @@ if __name__ == "__main__":
     #     plt.grid(True)
     #     plt.tight_layout()
     #     plt.savefig("test_reward_summary.png")
-    #     print("✅ Reward plot saved as 'test_reward_summary.png'")
+    #     print("Reward plot saved as 'test_reward_summary.png'")
     # except Exception as e:
-    #     print("❌ Failed to plot total reward:", e)
+    #     print("Failed to plot total reward:", e)
 
     # === Comparison Plot: Test vs Baseline ===
     try:
-        print("📊 Plotting Test vs Baseline Comparison (Line Graphs)...")
+        print("Plotting Test vs Baseline Comparison (Line Graphs)...")
         import matplotlib.pyplot as plt
         import numpy as np
 
@@ -188,8 +188,8 @@ if __name__ == "__main__":
         baseline_reward = np.load("baseline_reward.npy")
 
         # === Compute Baseline Energy Efficiency (based on total bits transmitted) ===
-        packets_per_ue = SIM_TIME / PACKET_INTERVAL       # e.g., 24 / (1/36) = 864 packets/UE
-        total_packets = packets_per_ue * 30               # 30 UEs
+        packets_per_ue = SIM_TIME / PACKET_INTERVAL       
+        total_packets = packets_per_ue * 30               
         total_bits = total_packets * PACKET_SIZE_BYTES * 8
 
         baseline_efficiency = np.array([
@@ -238,7 +238,7 @@ if __name__ == "__main__":
             (0.0, 'Poor < 7 dB', 'black')
         ]
 
-        x_label_pos = x[-1] + 0.5  # Slightly to the right of the last seed
+        x_label_pos = x[-1] + 0.5  
 
         for y, label, color in thresholds:
             plt.axhline(y=y, color=color, linestyle='--', linewidth=1.5)
@@ -260,14 +260,14 @@ if __name__ == "__main__":
         plt.savefig("line_sinr_per_seed.png")
 
 
-        # baseline_efficiency = np.array([np.sum(test_efficiency) / len(test_efficiency)] * len(SEEDS))  # Optional placeholder baseline
+        
 
         # === Plot Energy Efficiency per Seed (Test vs Baseline) ===
         plt.figure(figsize=(12, 6))
         plt.plot(x, test_efficiency, marker='o', label="Test (RL)", color='red', linewidth=2)
         plt.plot(x, baseline_efficiency, marker='s', label="Baseline (Avg)", color='lime', linewidth=2)
 
-        # Axes and final touches
+
         # plt.xticks(x, [str(i + 1) for i in x]) 
         # xtick_interval = 10
         # tick_locs = x[::xtick_interval]
@@ -302,14 +302,14 @@ if __name__ == "__main__":
         plt.tight_layout()
         plt.savefig("line_reward_per_seed.png")
 
-        print("✅ Saved line plots: energy, sinr, efficiency, and reward.")
+        print("Saved line plots: energy, sinr, efficiency, and reward.")
 
     except Exception as e:
-        print("❌ Failed to generate line comparison plots:", e)
+        print("Failed to generate line comparison plots:", e)
 
     # === Plot Active UE Count Per Step ===
     try:
-        print("📈 Plotting Active UE Count per Hour...")
+        print("Plotting Active UE Count per Hour...")
         test_active_ue = np.load("test_active_ue_per_step.npy", allow_pickle=True)
 
         # Bright red, green, blue in order
@@ -334,16 +334,16 @@ if __name__ == "__main__":
         plt.legend(loc="upper right", fontsize="small")
         plt.tight_layout()
         plt.savefig("active_ue_count_per_hour.png")
-        print("✅ Saved: 'active_ue_count_per_hour.png'")
+        print("Saved: 'active_ue_count_per_hour.png'")
     except Exception as e:
-        print("❌ Failed to plot Active UE Count:", e)
+        print("Failed to plot Active UE Count:", e)
 
 
     # Run post-analysis script
     import subprocess
     try:
-        print("📊 Running post-analysis script...")
+        print("Running post-analysis script...")
         subprocess.run(["python3", "plot_sbs_analysis_multi_seed.py"], check=True)
-        print("✅ Analysis script completed successfully.")
+        print("Analysis script completed successfully.")
     except subprocess.CalledProcessError as e:
-        print("❌ Failed to run plotting script:", e)
+        print("Failed to run plotting script:", e)

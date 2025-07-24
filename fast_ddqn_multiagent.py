@@ -79,7 +79,6 @@ class FastDDQNAgent:
                 valid_actions = [0, 1, 2, 3]  # Full access (SM3 unlocked)
 
         # === Optional: epsilon bump when unlocking new mode ===
-        # Uncomment if needed to encourage exploration after unlock
         # if episode_num in [6, 16, 26]:
         #     self.epsilon = max(self.epsilon, 0.3)
 
@@ -241,9 +240,9 @@ if __name__ == "__main__":
     RESUME = False
     if RESUME and all(os.path.exists(f"trained_ddqn_agent_{i}_model.h5") for i in range(N_AGENTS)):
         wrapper.load_all("trained_ddqn_agent")
-        print("✅ Successfully loaded previous model, epsilon and steps!")
+        print("Successfully loaded previous model, epsilon and steps!")
     else:
-        print("🚀 Training from scratch...")
+        print("Training from scratch...")
 
     rewards_history, avg_rewards_per_episode = [], []
     step_rewards = []
@@ -254,7 +253,7 @@ if __name__ == "__main__":
     sbs_state_log = {i: [] for i in range(N_AGENTS)} 
     print("==== Fast Multi-Agent DDQN Training Start ====")
     for ep in range(1, EPISODES+1):
-        # sim_seed = ep  # or random.randint(...) if variability is more important
+        # sim_seed = ep  
         # seed_pool = [11, 22, 33, 44, 55, 66, 77, 88, 99, 111]
         sim_seed = ep
         env = ns3env.Ns3Env(port=5555, stepTime=0.01, startSim=True, simSeed=sim_seed)
@@ -364,7 +363,7 @@ if __name__ == "__main__":
         writer = csv.writer(f)
         writer.writerow(["episode", "step"] + [f"SBS_{i}_state" for i in range(N_AGENTS)])
 
-        # Transpose the log structure to group by (episode, step)
+        
         max_len = max(len(sbs_state_log[i]) for i in sbs_state_log)
         for idx in range(max_len):
             try:
@@ -409,7 +408,7 @@ if __name__ == "__main__":
     
     # === Save energy results ===
     np.save("rl_energy_per_episode.npy", np.array(total_energy_per_episode))
-    np.save("rl_energy_per_episode.npy", np.array(total_power_per_episode))
+    # np.save("rl_energy_per_episode.npy", np.array(total_power_per_episode))
     np.save("baseline_energy_per_episode.npy", np.array(baseline_energy_per_episode))
     np.save("baseline_power_per_episode.npy", np.array(baseline_power_per_episode))
     np.save("baseline_sinr_per_episode.npy", np.array(baseline_sinr_per_episode))
@@ -433,7 +432,7 @@ if __name__ == "__main__":
     plt.savefig("energy_comparison.png")
     plt.show()
 
-        # === Plot: Power Consumption Comparison ===
+    # === Plot: Power Consumption Comparison ===
     plt.figure(figsize=(10,6))
     plt.plot(total_power_per_episode, label="With RL (DDQN)")
     plt.plot(baseline_power_per_episode, label="Baseline (Always Active)")
@@ -461,7 +460,7 @@ if __name__ == "__main__":
         plt.savefig("sinr_comparison.png")
         plt.show()
     except Exception as e:
-        print("❌ Could not plot SINR comparison:", e)
+        print("Could not plot SINR comparison:", e)
 
 
     # === Plot: Energy Efficiency Comparison ===

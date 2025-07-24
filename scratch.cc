@@ -14,7 +14,6 @@
 #include "ns3/energy-source-container.h"
 #include "ns3/device-energy-model-container.h"
 #include "ns3/flow-monitor-helper.h"
-// #include "smallCellEnergyModelOriginal.h"
 #include "ns3/opengym-module.h"
 #include <map>
 #include <vector>
@@ -23,12 +22,10 @@
 #include <functional>
 #include <stdexcept>
 #include <numeric>
-// #include "ns3/config-store.h"
-// #include "ns3/string.h"
-// #include "ns3/config.h"
+
 
 using namespace ns3;
-// using namespace ns3::energy;
+
 
 bool g_isBaselineRun = false;  
 // Global tracking maps
@@ -37,7 +34,6 @@ std::map<uint64_t, uint32_t> ueToSbsMap;           // IMSI -> SBS NodeId
 std::map<uint16_t, uint32_t> cellIdToNodeId;       // CellId -> SBS NodeId
 std::unordered_map<uint32_t, Ptr<SmallCellEnergyModel>> sbsEnergyModels;
 std::map<std::pair<uint16_t, uint16_t>, uint64_t> rntiToImsiMap;
-
 std::map<uint64_t, ApplicationContainer> ueServerApps; // Map IMSI to server apps
 std::map<uint64_t, ApplicationContainer> ueClientApps; // Map IMSI to client apps
 
@@ -86,160 +82,6 @@ void NotifyConnectionEstablishedUe(std::string context, uint64_t imsi,
 }
 
 
-// void NotifyConnectionEstablishedUe(std::string context, uint64_t imsi, uint16_t cellId, uint16_t rnti)
-// {
-//     // NS_LOG_UNCOND("UE with IMSI " << imsi << " connected to CellId: " << cellId);
-
-//     // Find the corresponding SBS NodeId based on the CellId
-//     if (cellIdToNodeId.find(cellId) == cellIdToNodeId.end()) {
-        
-//         NS_LOG_UNCOND("Unknown CellId " << cellId);
-//         return;
-//     }
-
-//     uint32_t sbsNodeId = cellIdToNodeId[cellId];
-//     NS_LOG_UNCOND("UE with IMSI " << imsi << " connected to NodeId: " << sbsNodeId);
-//     // Add the IMSI of the connected UE to the map for the corresponding SBS NodeId
-//     sbsToUeMap[sbsNodeId].push_back(imsi);
-// }
-
-
-
-// void NotifyConnectionEstablishedUe(std::string context, uint64_t imsi, uint16_t cellId, uint16_t rnti)
-// {
-//     NS_LOG_UNCOND("UE with IMSI " << imsi << " connected to CellId: " << cellId);
-
-//     if (cellIdToNodeId.find(cellId) == cellIdToNodeId.end()) {
-//         NS_LOG_UNCOND("Unknown CellId " << cellId);
-//         return;
-//     }
-
-//     uint32_t newSbsId = cellIdToNodeId[cellId];
-
-//     if (ueToSbsMap.count(imsi) > 0) {
-//         uint32_t oldSbsId = ueToSbsMap[imsi];
-//         if (oldSbsId == newSbsId) {
-//             return; // No change, avoid double-counting
-//         }
-//         sbsToUeCount[oldSbsId] = std::max(0U, sbsToUeCount[oldSbsId] - 1);
-//     }
-
-//     ueToSbsMap[imsi] = newSbsId;
-//     sbsToUeCount[newSbsId]++;
-// }
-
-// Function to print SBS -> UE IMSI mapping
-void PrintSbsUeMappings()
-{
-    NS_LOG_UNCOND("=== SBS -> UE IMSI Mappings at " << Simulator::Now().GetSeconds() << "s ===");
-
-    for (const auto& entry : sbsToUeMap)
-    {
-        uint32_t sbsNodeId = entry.first;
-        const std::vector<uint64_t>& ueList = entry.second;
-
-        NS_LOG_UNCOND("SBS NodeId " << sbsNodeId << " has the following UE(s) connected:");
-        for (uint64_t imsi : ueList)
-        {
-            NS_LOG_UNCOND("  - UE IMSI: " << imsi);
-        }
-    }
-
-    Simulator::Schedule(Seconds(1.0), &PrintSbsUeMappings);
-}
-
-// void PrintSbsUeMappings()
-// {
-//     NS_LOG_UNCOND("=== SBS -> UE IMSI Mappings at " << Simulator::Now().GetSeconds() << "s ===");
-    
-//     // Iterate through the SBS to UE map and print the IMSIs connected to each SBS
-//     for (const auto& entry : sbsToUeMap)
-//     {
-//         uint32_t sbsNodeId = entry.first;
-//         const std::vector<uint64_t>& ueImsiList = entry.second;
-
-//         NS_LOG_UNCOND("SBS NodeId " << sbsNodeId << " has the following UE(s) connected:");
-//         for (const auto& imsi : ueImsiList)
-//         {
-//             NS_LOG_UNCOND("  - UE IMSI: " << imsi);
-//         }
-//     }
-
-//     // Schedule the function to be called every second
-//     Simulator::Schedule(Seconds(1.0), &PrintSbsUeMappings);
-// }
-
-// === Periodic print of SBS UE counts ===
-// void PrintSbsConnections()
-// {
-//     NS_LOG_UNCOND("=== SBS Connection Summary at " << Simulator::Now().GetSeconds() << "s ===");
-//     for (const auto& pair : sbsToUeCount)
-//     {
-//         NS_LOG_UNCOND("SBS NodeId " << pair.first << " has " << pair.second << " UE(s) connected.");
-//     }
-//     Simulator::Schedule(Seconds(1.0), &PrintSbsConnections);
-// }
-void PrintSbsConnections()
-{
-    std::cout << "=== SBS Connection Summary at " << Simulator::Now().GetSeconds() << "s ===" << std::endl;
-    for (const auto& pair : sbsToUeMap)
-    {
-        uint32_t sbsNodeId = pair.first;
-        const std::vector<uint64_t>& ueImsis = pair.second;
-
-        std::cout << "SBS NodeId " << sbsNodeId << " has the following UE(s) connected:" << std::endl;
-        for (uint64_t imsi : ueImsis)
-        {
-            std::cout << "  - UE IMSI: " << imsi << std::endl;
-        }
-    }
-    Simulator::Schedule(Seconds(0.5), &PrintSbsConnections);
-}
-
-
-// === Periodic energy monitor ===
-// void PrintRemainingEnergy(std::vector<Ptr<SmallCellEnergyModelOriginal>> energyModels)
-// {
-//     NS_LOG_UNCOND("Time: " << Simulator::Now().GetSeconds() << "s - Remaining energy:");
-//     for (size_t i = 0; i < energyModels.size(); ++i)
-//     {
-//         NS_LOG_UNCOND("  SBS[" << i << "]: " << energyModels[i]->GetRemainingEnergy() << " J");
-//     }
-//     Simulator::Schedule(Seconds(1.0), &PrintRemainingEnergy, energyModels);
-// }
-
-// void PrintUePositions(NodeContainer ueNodes)
-// {
-//     NS_LOG_UNCOND("=== UE Positions at " << Simulator::Now().GetSeconds() << "s ===");
-//     for (uint32_t i = 0; i < ueNodes.GetN(); ++i)
-//     {
-//         Ptr<Node> ue = ueNodes.Get(i);
-//         Ptr<MobilityModel> mobility = ue->GetObject<MobilityModel>();
-//         if (mobility)
-//         {
-//             Vector pos = mobility->GetPosition();
-//             NS_LOG_UNCOND("  UE[" << i + 1 << "] Position: (" << pos.x << ", " << pos.y << ", " << pos.z << ")");
-//         }
-//     }
-//     Simulator::Schedule(Seconds(1.0), &PrintUePositions, ueNodes);
-// }
-
-void PrintUePositions(NodeContainer ueNodes)
-{
-    std::cout << "=== UE Positions at " << Simulator::Now().GetSeconds() << "s ===" << std::endl;
-    for (uint32_t i = 0; i < ueNodes.GetN(); ++i)
-    {
-        Ptr<Node> ue = ueNodes.Get(i);
-        Ptr<MobilityModel> mobility = ue->GetObject<MobilityModel>();
-        if (mobility)
-        {
-            Vector pos = mobility->GetPosition();
-            std::cout << "  UE[" << i + 1 << "] Position: (" << pos.x << ", " << pos.y << ", " << pos.z << ")" << std::endl;
-        }
-    }
-
-    Simulator::Schedule(Seconds(1.0), &PrintUePositions, ueNodes);
-}
 
 
 void PrintSbsPositions(NodeContainer smallCellEnbs)
@@ -261,7 +103,6 @@ void PrintSbsPositions(NodeContainer smallCellEnbs)
         }
     }
 
-    // Optional: reschedule if you want to monitor over time
     // Simulator::Schedule(Seconds(1.0), &PrintSbsPositions, smallCellEnbs);
 }
 
@@ -280,32 +121,6 @@ void LogUePositions(Ptr<Node> ueNode, uint32_t imsi) {
     Simulator::Schedule(Seconds(1.0), &LogUePositions, ueNode, imsi);
 }
 
-static std::ofstream&
-GetRsrpSinrLog(const std::string& filename = "rsrp-sinr-log.csv",
-               bool               append    = false)
-{
-    static std::ofstream logFile;
-    static bool          init = false;
-
-    if (!init)
-    {
-        std::ios_base::openmode mode = std::ios::out |
-                                       (append ? std::ios::app
-                                               : std::ios::trunc);
-
-        logFile.open(filename, mode);
-        if (!logFile.is_open())
-        {
-            throw std::runtime_error("Cannot open log file: " + filename);
-        }
-
-        if (!append)      // header once
-            logFile << "time_s,nodeId,rnti,imsi,rsrp_w,sinr_lin,ccId\n";
-
-        init = true;
-    }
-    return logFile;
-}
 
 static std::ofstream&
 GetDebugLog(const std::string& filename = "sinr-debug.log",
@@ -362,44 +177,6 @@ void NotifyHandoverEndOkUe(std::string context, uint64_t imsi,
     });
 }
 
-// void UpdateEnergy(Ptr<SmallCellEnergyModel> model)
-// {
-//   Time interval = Seconds(1); // or change as needed
-//   model->UpdateEnergyConsumption(interval);
-//   Simulator::Schedule(interval, &UpdateEnergy, model);
-// }
-
-// void
-// NotifyHandoverEndOkUe(std::string context, uint64_t imsi, uint16_t cellId, uint16_t rnti)
-// {
-//     if (cellIdToNodeId.find(cellId) == cellIdToNodeId.end()) {
-//         NS_LOG_UNCOND("Unknown CellId " << cellId << " during handover for IMSI " << imsi);
-//         return;
-//     }
-
-//     uint32_t sbsNodeId = cellIdToNodeId[cellId];
-
-//     std::cout << Simulator::Now().GetSeconds()
-//               << "s: UE IMSI " << imsi
-//               << " successfully handed over to NodeId " << sbsNodeId
-//               << " (CellId " << cellId << ", RNTI " << rnti << ")" << std::endl;
-// }
-
-void PrintSbsUeCounts()
-{
-    std::cout << "=== SBS UE Count Summary at " << Simulator::Now().GetSeconds() << "s ===" << std::endl;
-
-    for (const auto& entry : sbsToUeMap)
-    {
-        uint32_t sbsNodeId = entry.first;
-        size_t ueCount = entry.second.size();
-
-        std::cout << "SBS NodeId " << sbsNodeId << " has " << ueCount << " UE(s) connected." << std::endl;
-    }
-
-    // Schedule this function to run again in 1 second
-    Simulator::Schedule(Seconds(1.0), &PrintSbsUeCounts);
-}
 
 
 std::string StateToString(SmallCellEnergyModel::SmallCellState state)
@@ -414,114 +191,11 @@ std::string StateToString(SmallCellEnergyModel::SmallCellState state)
     }
 }
 
-void UpdateSbsSleepStates()
-{
-    // uint32_t sleepThreshold = 1; // Minimum active UEs to stay awake
-
-    for (const auto& entry : sbsToUeMap)
-    {
-        uint32_t sbsNodeId = entry.first;
-        const auto& ueList = entry.second;
-        
-        if (sbsEnergyModels.find(sbsNodeId) != sbsEnergyModels.end())
-        {
-            Ptr<SmallCellEnergyModel> scEnergyModel = sbsEnergyModels[sbsNodeId];
-            
-            // Count ACTIVE UEs connected to this SBS
-            uint32_t activeUeCount = 0;
-            for (uint64_t imsi : ueList) {
-                if (ueActivityMap[imsi]) {
-                    activeUeCount++;
-                }
-            }
-
-            // Set state based on active UEs
-            // if (activeUeCount == 0) {
-            //     scEnergyModel->SetState(SmallCellEnergyModel::SM3); // Deep sleep
-            // } 
-            // else if (activeUeCount <= sleepThreshold) {
-            //     scEnergyModel->SetState(SmallCellEnergyModel::SM1); // Light sleep
-            // }
-            // else {
-                scEnergyModel->SetState(SmallCellEnergyModel::ACTIVE);
-            // }
-
-            // Update SBS transmission power
-            Ptr<Node> sbsNode = NodeList::GetNode(sbsNodeId);
-            Ptr<LteEnbNetDevice> enbDev = sbsNode->GetDevice(0)->GetObject<LteEnbNetDevice>();
-            Ptr<LteEnbPhy> enbPhy = enbDev->GetPhy();
-            
-            // Get power from energy model (convert W to dBm if needed)
-            double txPowerDbm = scEnergyModel->GetTransmissionPower();
-            // double txPowerDbm = 10 * log10(txPowerW) + 30; // Convert W to dBm
-            enbPhy->SetTxPower(txPowerDbm);
-
-            std::cout << Simulator::Now().GetSeconds()
-                      << "s: SBS " << sbsNodeId << " has " << activeUeCount << " active UEs"
-                      << ", State: " << StateToString(scEnergyModel->GetState())
-                      << ", Tx Power: " << txPowerDbm << " dBm" << std::endl;
-        }
-    }
-
-    Simulator::Schedule(Seconds(0.5), &UpdateSbsSleepStates);
-}
-
-
-void SinrTraceCallback(std::string context, double rsrp, double sinr)
-{
-    // Optional: parse IMSI from context string if needed
-    std::cout << "RSRP: " << rsrp << " dBm, SINR: " << sinr << " dB" << std::endl;
-}
-
-
-// void
-// ReportTraceCallback(uint16_t cellId, uint16_t rnti, double rsrp, double sinr, uint8_t componentCarrierId)
-// {
-//     uint32_t sbsNodeId = cellIdToNodeId[cellId];
-//     double timeNow = Simulator::Now().GetSeconds();
-
-//     auto key = std::make_pair(cellId, rnti);
-//     auto it = rntiToImsiMap.find(key);
-//     uint64_t imsi = (it != rntiToImsiMap.end()) ? it->second : 0;  // 0 = unknown
-
-//     std::cout << "Time=" << timeNow << "s"
-//               << ", NodeId=" << sbsNodeId
-//               << ", RNTI=" << rnti
-//               << ", IMSI=" << imsi
-//               << ", RSRP=" << rsrp
-//               << ", SINR=" << sinr
-//               << ", CCId=" << static_cast<uint32_t>(componentCarrierId) << std::endl;
-// }
-
-void ReportTraceCallback(uint16_t cellId,
-                    uint16_t rnti,
-                    double   rsrp,   // linear W
-                    double   sinr,   // linear ratio
-                    uint8_t  componentCarrierId)
-{
-    uint32_t nodeId = cellIdToNodeId[cellId];
-    double   t      = Simulator::Now().GetSeconds();
-
-    auto key     = std::make_pair(cellId, rnti);
-    auto it      = rntiToImsiMap.find(key);
-    uint64_t imsi = (it != rntiToImsiMap.end()) ? it->second : 0;
-
-    GetRsrpSinrLog()               // <-- log entry
-        << t        << ','
-        << nodeId   << ','
-        << rnti     << ','
-        << imsi     << ','
-        << rsrp     << ','
-        << sinr     << ','
-        << uint32_t(componentCarrierId)
-        << '\n';
-}
 
 void PrintRadioParameters(NetDeviceContainer enbDevs, NetDeviceContainer ueDevs)
 {
     std::cout << "\n==== Effective Radio Parameters ====\n";
 
-    // Example: Print DL Tx Power from the first eNB
     if (enbDevs.GetN() > 0)
     {
         Ptr<LteEnbNetDevice> enbDev = DynamicCast<LteEnbNetDevice>(enbDevs.Get(0));
@@ -529,7 +203,6 @@ void PrintRadioParameters(NetDeviceContainer enbDevs, NetDeviceContainer ueDevs)
         std::cout << "eNB DL Transmission Power: " << phy->GetTxPower() << " dBm" << std::endl;
     }
 
-    // Example: Print UE noise figure from the first UE
     if (ueDevs.GetN() > 0)
     {
         Ptr<LteUeNetDevice> ueDev = DynamicCast<LteUeNetDevice>(ueDevs.Get(0));
@@ -540,63 +213,6 @@ void PrintRadioParameters(NetDeviceContainer enbDevs, NetDeviceContainer ueDevs)
     std::cout << "=====================================\n";
 }
 
-void PrintUeToSbsDistances(NodeContainer ueNodes,
-                           std::map<uint16_t, uint32_t> cellIdToNodeId)
-{
-    for (uint32_t i = 0; i < ueNodes.GetN(); ++i)
-    {
-        Ptr<Node> ue = ueNodes.Get(i);
-        Ptr<MobilityModel> ueMobility = ue->GetObject<MobilityModel>();
-        Vector uePos = ueMobility->GetPosition();
-
-        Ptr<NetDevice> ueDevice = ue->GetDevice(0);
-        Ptr<LteUeNetDevice> lteUeDev = DynamicCast<LteUeNetDevice>(ueDevice);
-
-        uint64_t imsi = lteUeDev->GetImsi(); 
-        uint16_t cellId = lteUeDev->GetRrc()->GetCellId();
-
-        if (cellIdToNodeId.find(cellId) != cellIdToNodeId.end())
-        {
-            uint32_t sbsNodeId = cellIdToNodeId[cellId];
-            Ptr<Node> sbsNode = NodeList::GetNode(sbsNodeId);
-            Ptr<MobilityModel> sbsMobility = sbsNode->GetObject<MobilityModel>();
-            Vector sbsPos = sbsMobility->GetPosition();
-
-            double distance = std::sqrt(std::pow(uePos.x - sbsPos.x, 2) +
-                                        std::pow(uePos.y - sbsPos.y, 2) +
-                                        std::pow(uePos.z - sbsPos.z, 2));
-
-            std::cout << "UE IMSI " << imsi
-                      << " connected to SBS NodeId " << sbsNodeId
-                      << " (CellId " << cellId << ")"
-                      << " at distance: " << distance << " m" << std::endl;
-        }
-        else
-        {
-            std::cout << "UE IMSI " << imsi
-                      << " is connected to unknown CellId " << cellId << std::endl;
-        }
-    }
-}
-
-std::vector<Vector> GetSbsPositions(NodeContainer smallCellEnbs)
-{
-    std::vector<Vector> sbsPositions;
-
-    for (uint32_t i = 0; i < smallCellEnbs.GetN(); ++i)
-    {
-        Ptr<Node> sbs = smallCellEnbs.Get(i);
-        Ptr<MobilityModel> sbsMobility = sbs->GetObject<MobilityModel>();
-
-        if (sbsMobility)
-        {
-            Vector pos = sbsMobility->GetPosition();
-            sbsPositions.push_back(pos);
-        }
-    }
-
-    return sbsPositions;
-}
 
 void ToggleUeApplications(uint64_t imsi, bool activate)
 {
@@ -615,13 +231,12 @@ void ToggleUeApplications(uint64_t imsi, bool activate)
     }
 }
 
-// Modify the ScheduleUeActivity function to be more comprehensive
 void UpdateUeActivity(uint64_t imsi, double simulationTime) 
 {
     Ptr<UniformRandomVariable> rand = CreateObject<UniformRandomVariable>();
     double nextCheck = rand->GetValue(0.1, 0.3); // Randomly check every 0.1 to 0.3 seconds
 
-    // Capture 'rand' in the lambda capture list
+    
     Simulator::Schedule(Seconds(nextCheck), [imsi, simulationTime, rand]() {
         double now = Simulator::Now().GetSeconds();
         double simTimeHours = (now / simulationTime) * 24.0;
@@ -648,67 +263,6 @@ void UpdateUeActivity(uint64_t imsi, double simulationTime)
     });
 }
 
-// double GetUserRequestProbability(double timeSeconds) {
-//     // Simulate 1 full day in 60s: Map time 0–60s to 0–24h
-//     double hour = (timeSeconds / 60.0) * 24.0;
-
-//     if (hour >= 0 && hour < 6) return 0.01;   // Night: almost no requests
-//     if (hour >= 6 && hour < 12) return 0.3;   // Morning: increasing
-//     if (hour >= 12 && hour < 18) return 0.6;  // Afternoon: peak
-//     if (hour >= 18 && hour < 22) return 0.4;  // Evening: still high
-//     return 0.1;                               // Late evening
-// }
-
-uint32_t CountActiveUesNearSbs(Ptr<Node> sbsNode, NodeContainer ueNodes, double radius)
-{
-    Ptr<MobilityModel> sbsMobility = sbsNode->GetObject<MobilityModel>();
-    uint32_t count = 0;
-
-    for (uint32_t i = 0; i < ueNodes.GetN(); ++i)
-    {
-        Ptr<Node> ueNode = ueNodes.Get(i);
-        Ptr<MobilityModel> ueMobility = ueNode->GetObject<MobilityModel>();
-
-        Ptr<NetDevice> ueDev = ueNode->GetDevice(0);
-        Ptr<LteUeNetDevice> ueLteDev = ueDev->GetObject<LteUeNetDevice>();
-        uint64_t imsi = ueLteDev->GetImsi();
-
-        if (ueActivityMap[imsi]) // active
-        {
-            double dist = ueMobility->GetDistanceFrom(sbsMobility);
-            if (dist <= radius)
-                count++;
-        }
-    }
-
-    return count;
-}
-
-// Add this helper function to get active UE count per SBS
-uint32_t GetActiveUeCount(uint32_t sbsNodeId)
-{
-    uint32_t count = 0;
-    if (sbsToUeMap.find(sbsNodeId) != sbsToUeMap.end()) {
-        for (uint64_t imsi : sbsToUeMap[sbsNodeId]) {
-            if (ueActivityMap[imsi]) {
-                count++;
-            }
-        }
-    }
-    return count;
-}
-
-// Add this to print active UE counts
-void PrintActiveUeCounts()
-{
-    std::cout << "=== Active UE Counts at " << Simulator::Now().GetSeconds() << "s ===" << std::endl;
-    for (const auto& entry : sbsToUeMap) {
-        uint32_t sbsNodeId = entry.first;
-        std::cout << "SBS " << sbsNodeId << ": " 
-                  << GetActiveUeCount(sbsNodeId) << " active UEs" << std::endl;
-    }
-    Simulator::Schedule(Seconds(1.0), &PrintActiveUeCounts);
-}
 
 // Utility: dBm to Watt
 double dBmToWatt(double dBm) {
@@ -720,7 +274,7 @@ double WattTodB(double watt) {
     return 10.0 * std::log10(watt);
 }
 
-// Path loss model (simple log-distance; tweak as needed)
+// Path loss model
 double CalculateRxPowerDbm(double txPowerDbm, double distance, double pathLossExp = 3.5) {
     if (distance < 1.0) distance = 1.0;
     return txPowerDbm - 10 * pathLossExp * std::log10(distance);
@@ -734,104 +288,13 @@ bool IsMacroNode(uint32_t nodeId) {
 }
 
 
-// double CalculateSinr(
-//     Ptr<Node> ueNode,
-//     Ptr<Node> candidateEnbNode,
-//     double    candidateTxPowerDbm,
-//     double    pathLossExponent,
-//     NetDeviceContainer& enbDevs,
-//     bool enableLog = true)  // <-- new param
-// {
-//     auto&  dbg   = GetDebugLog();
-//     double tNow  = Simulator::Now().GetSeconds();
-
-//     Ptr<MobilityModel> ueMob = ueNode->GetObject<MobilityModel>();
-//     Ptr<MobilityModel> candidateEnbMob = candidateEnbNode->GetObject<MobilityModel>();
-//     if (enableLog) {
-//         Vector uePos = ueMob->GetPosition();
-//         Vector enbPos = candidateEnbMob->GetPosition();
-
-//         // dbg << "    [DEBUG] UE Position:  (" << uePos.x << ", " << uePos.y << ", " << uePos.z << ")\n";
-//         // dbg << "    [DEBUG] eNB Position: (" << enbPos.x << ", " << enbPos.y << ", " << enbPos.z << ")\n";
-//     }
-//     double distance = ueMob->GetDistanceFrom(candidateEnbMob);
-
-//     double rxSignalDbm  = CalculateRxPowerDbm(candidateTxPowerDbm, distance,  pathLossExponent);
-//     double rxSignalWatt = dBmToWatt(rxSignalDbm);
-
-//     double interferenceWatt = 0.0;
-//     for (uint32_t i = 0; i < enbDevs.GetN(); ++i) {
-//         Ptr<LteEnbNetDevice> enbDev = DynamicCast<LteEnbNetDevice>(enbDevs.Get(i));
-//         if (!enbDev) continue;
-
-//         Ptr<Node> enbNode = enbDev->GetNode();
-//         uint32_t enbNodeId = enbNode->GetId();
-
-//         if (enbNodeId == candidateEnbNode->GetId()) continue; // skip self
-
-//         if (IsMacroNode(enbNodeId)) {
-//             // dbg << "    [DEBUG] Skipping interference from macro eNB NodeId=" << enbNodeId << "\n";
-//             continue;
-//         }// <<< SKIP MACRO NODES
-//         Ptr<MobilityModel> otherEnbMob = enbDev->GetNode()->GetObject<MobilityModel>();
-//         double otherDist = ueMob->GetDistanceFrom(otherEnbMob);
-
-//         Ptr<LteEnbPhy> enbPhy = enbDev->GetPhy();
-//         double otherTxPowerDbm = enbPhy ? enbPhy->GetTxPower() : 44.77;
-//         double rxInterfDbm = CalculateRxPowerDbm(otherTxPowerDbm, otherDist,  pathLossExponent);
-//         double rxInterfWatt = dBmToWatt(rxInterfDbm);
-
-//         interferenceWatt += rxInterfWatt;
-
-//         if (enableLog) {
-//             Vector interfererPos = otherEnbMob->GetPosition();
-
-//             dbg << "    [" << tNow << "s]  Interferer eNB NodeId=" << enbNodeId
-//                 << " | Tx=" << otherTxPowerDbm << " dBm"
-//                 << " | Pos=(" << interfererPos.x << ", " << interfererPos.y << ", " << interfererPos.z << ")"
-//                 << " | Dist=" << otherDist << " m"
-//                 << " | Rx=" << rxInterfDbm << " dBm (" << rxInterfWatt << " W)\n";
-//         }
-//     }
-
-//     double noiseWatt = 1.38e-23 * 290 * 20e6;
-//     double denom = interferenceWatt + noiseWatt;
-//     if (denom <= 0.0) denom = 1e-12;
-//     double sinr = rxSignalWatt / denom;
-//     double sinrDb = 10.0 * std::log10(sinr);
-
-//     uint64_t imsi = 0;
-//     Ptr<NetDevice> ueNetDev = ueNode->GetDevice(0);
-//     Ptr<LteUeNetDevice> ueLteDev = ueNetDev->GetObject<LteUeNetDevice>();
-//     if (ueLteDev) {
-//         imsi = ueLteDev->GetImsi();
-//     }
-
-//     if (enableLog) {
-//         dbg << "\n[" << tNow << "s]  Calculating SINR  UE(IMSI=" << imsi
-//             << ")  Candidate eNB(NodeId=" << candidateEnbNode->GetId() << ")\n";
-//         dbg << "    UE pos: " << ueMob->GetPosition()
-//             << " | eNB pos: " << candidateEnbMob->GetPosition()
-//             << " | Distance: " << distance << " m\n";
-//         dbg << "    Candidate TxPower: " << candidateTxPowerDbm << " dBm\n";
-//         dbg << "    [" << tNow << "s]  Signal Power from Serving eNB: "
-//             << rxSignalDbm << " dBm (" << rxSignalWatt << " W)\n";
-//         dbg << "    [" << tNow << "s]  Total Interference: " << interferenceWatt << " W\n";
-//         dbg << "    [" << tNow << "s]  Noise Power: " << noiseWatt << " W\n";
-//         dbg << "    [" << tNow << "s]  SINR: " << sinr << " (linear)  = "
-//             << sinrDb << " dB\n";
-//     }
-
-//     return sinrDb;
-// }
-
 double CalculateSinr(
     Ptr<Node> ueNode,
     Ptr<Node> candidateEnbNode,
     double candidateTxPowerDbm,
     double pathLossExponent,
     NetDeviceContainer& enbDevs,
-    bool enableLog = true  // <-- still exists to maintain function signature
+    bool enableLog = true 
 ) {
     Ptr<MobilityModel> ueMob = ueNode->GetObject<MobilityModel>();
     Ptr<MobilityModel> candidateEnbMob = candidateEnbNode->GetObject<MobilityModel>();
@@ -858,7 +321,7 @@ double CalculateSinr(
         Ptr<LteEnbPhy> enbPhy = enbDev->GetPhy();
         double otherTxPowerDbm = enbPhy ? enbPhy->GetTxPower() : 44.77;
 
-        if (otherTxPowerDbm > 0)  // treat anything higher than "off" threshold as active
+        if (otherTxPowerDbm > 0) 
             ++activeSmallCellCount;
 
 
@@ -887,17 +350,13 @@ double CalculateSinr(
     return sinrDb;
 }
 
-
-
-
-
 void CustomSinrHandover(
     Ptr<LteHelper> lteHelper, 
     NodeContainer& ueNodes, 
     NetDeviceContainer& enbDevs, 
     NetDeviceContainer& ueDevs, 
     double pathLossExponent, 
-    double sinrHysteresisDb = 2.0 // Minimum SINR improvement needed (dB)
+    double sinrHysteresisDb = 2.0
 ) {
     NS_ASSERT(lteHelper != nullptr);
 
@@ -974,36 +433,6 @@ void CustomSinrHandover(
         }
 
         uint64_t imsi = ueDevice->GetObject<LteUeNetDevice>()->GetImsi();
-        // Handover decision: compare NodeIds
-        // std::cout << "\n[Handover Check] UE NodeId=" << ueNodeId << ", IMSI=" << ueRrc->GetUeDevice()->GetImsi() << std::endl;
-        // std::cout << "  Serving eNB NodeId: " << servingEnbNodeId << ", SINR: " << servingSinrDb << " dB" << std::endl;
-        // std::cout << "  Best Candidate eNB NodeId: " << bestEnbNodeId << ", SINR: " << bestSinrDb << " dB" << std::endl;
-        // std::cout << "  SINR Improvement: " << (bestSinrDb - servingSinrDb) << " dB (Threshold: " << sinrHysteresisDb << " dB)" << std::endl;
-
-        // if (bestEnbNodeId != servingEnbNodeId) {
-        //     std::cout << "  ✅ Candidate is different from current serving eNB.\n";
-        // } else {
-        //     std::cout << "  ❌ Candidate is the same as serving eNB. No handover.\n";
-        // }
-
-        // if ((bestSinrDb - servingSinrDb) > sinrHysteresisDb) {
-        //     std::cout << "  ✅ SINR improvement exceeds hysteresis threshold.\n";
-        // } else {
-        //     std::cout << "  ❌ SINR improvement too small for handover.\n";
-        // }
-
-        // if (ueRrc->GetState() == LteUeRrc::CONNECTED_NORMALLY) {
-        //     std::cout << "  ✅ UE is CONNECTED_NORMALLY.\n";
-        // } else {
-        //     std::cout << "  ❌ UE is NOT in CONNECTED_NORMALLY state.\n";
-        // }
-
-
-        // if (imsi != 0) {
-        //     std::cout << "  ✅ UE IMSI is valid (" << imsi << ").\n";
-        // } else {
-        //     std::cout << "  ❌ UE IMSI is 0. Handover not possible.\n";
-        // }
 
 
         if (bestEnbNodeId != servingEnbNodeId &&
@@ -1011,7 +440,7 @@ void CustomSinrHandover(
             ueRrc->GetState() == LteUeRrc::CONNECTED_NORMALLY &&
             ueRrc->GetRnti() != 0)
         {
-            // std::cout << "  🚀 Triggering SINR-based handover from NodeId " << servingEnbNodeId
+            // std::cout << " Triggering SINR-based handover from NodeId " << servingEnbNodeId
             //         << " to NodeId " << bestEnbNodeId << "\n" << std::endl;
             lteHelper->HandoverRequest(Seconds(0), ueDevice, servingEnb, bestEnbDev);
         }
@@ -1037,14 +466,14 @@ InitializeSbsTxPower ()
       uint32_t                    nodeId = entry.first;
       Ptr<SmallCellEnergyModel>   model  = entry.second;
 
-      // 1. Get the power the model thinks it should radiate (W)
-      double txPowerW   = model->GetTransmissionPower ();        // 30 W default
-      // 2. Convert W → dBm for LteEnbPhy::SetTxPower()
+ 
+      double txPowerW   = model->GetTransmissionPower ();   
+
       double txPowerDbm = (txPowerW > 0)
                             ? txPowerW
-                            : 0;                           // “off” flag
+                            : 0;                     
 
-      // 3. Push it into the PHY
+
       Ptr<Node>            sbsNode = NodeList::GetNode (nodeId);
       Ptr<LteEnbNetDevice> enbDev  =
           sbsNode->GetDevice (0)->GetObject<LteEnbNetDevice> ();
@@ -1056,26 +485,6 @@ InitializeSbsTxPower ()
     }
 }
 
-static std::ofstream&
-GetSbsSinrLog(const std::string& filename = "sbs_avg_sinr.csv", bool append = false)
-{
-    static std::ofstream logFile;
-    static bool initialized = false;
-
-    if (!initialized) {
-        std::ios_base::openmode mode = std::ios::out | (append ? std::ios::app : std::ios::trunc);
-        logFile.open(filename, mode);
-        if (!logFile.is_open()) {
-            throw std::runtime_error("Cannot open SINR log file: " + filename);
-        }
-
-        // Write CSV header
-        logFile << "time_s,sbs_id,avg_sinr_db,valid_ue_count\n";
-        initialized = true;
-    }
-
-    return logFile;
-}
 
 void SampleSbsSinr(NetDeviceContainer& enbDevs, NetDeviceContainer& ueDevs, double pathLossExponent) {
     double tNow = Simulator::Now().GetSeconds();
@@ -1094,7 +503,7 @@ void SampleSbsSinr(NetDeviceContainer& enbDevs, NetDeviceContainer& ueDevs, doub
         double txPowerDbm = enbDev->GetPhy()->GetTxPower();
 
         for (uint64_t imsi : ueList) {
-            //Only consider active UEs
+            // Only consider active UEs
             if (!ueActivityMap[imsi]) continue;
 
             for (uint32_t i = 0; i < ueDevs.GetN(); ++i) {
@@ -1152,113 +561,6 @@ void SampleMacroSinr(NetDeviceContainer& ueDevs, uint32_t macroNodeId, double pa
     std::cout << "[Macro BS] Avg SINR at " << tNow << "s = " << macroSinrAverage << " dB (from " << count << " UEs)\n";
 }
 
-// void StartSinrSampling(Time duration)
-// {
-//     double interval = 0.01;
-//     Time startTime = Simulator::Now();
-//     Time endTime = startTime + duration;
-
-//     // Schedule SINR sampling every 1ms within the duration window
-//     for (Time t = Seconds(0.0); t < duration; t += Seconds(interval)) {
-//         Simulator::Schedule(t, &SampleSbsSinr, std::ref(*globalEnbDevs), std::ref(*globalUeDevs), 3.5);
-//     }
-
-//     // Schedule clearing SINR samples right after the 0.2s window
-//     Simulator::Schedule(duration, [](){
-//         sbsSinrSamples.clear();
-//     });
-// }
-
-// static std::ofstream&
-// GetSinrActivationLog(const std::string& filename = "sinr_activation_log.csv",
-//                      bool               append    = false)
-// {
-//     static std::ofstream logFile;
-//     static bool          initialized = false;
-
-//     if (!initialized)
-//     {
-//         std::ios_base::openmode mode = std::ios::out |
-//                                        (append ? std::ios::app : std::ios::trunc);
-//         logFile.open(filename, mode);
-//         if (!logFile.is_open())
-//         {
-//             throw std::runtime_error("Cannot open SINR activation log file: " + filename);
-//         }
-
-//         // Write header
-//         logFile << "time_s,label,sbsNodeId,ueImsi,distance_m,sinr_db\n";
-//         initialized = true;
-//     }
-
-//     return logFile;
-// }
-
-// void LogSinrDuringTransition(uint32_t sbsNodeId, std::string label, Time endTime)
-// {
-//     double now = Simulator::Now().GetSeconds();
-//     auto& logFile = GetSinrActivationLog();
-
-//     Ptr<Node> sbsNode = NodeList::GetNode(sbsNodeId);
-//     if (!sbsNode) {
-//         // std::cout << now << "s: [ERROR] SBS NodeId " << sbsNodeId << " not found!\n";
-//         return;
-//     }
-
-//     Ptr<MobilityModel> sbsMob = sbsNode->GetObject<MobilityModel>();
-//     if (!sbsMob) {
-//         // std::cout << now << "s: [ERROR] SBS MobilityModel not found for NodeId " << sbsNodeId << "\n";
-//         return;
-//     }
-
-//     Ptr<SmallCellEnergyModel> energyModel = sbsEnergyModels[sbsNodeId];
-//     if (!energyModel) {
-//         std::cout << now << "s: [ERROR] No energy model found for SBS NodeId " << sbsNodeId << "\n";
-//         return;
-//     }
-
-//     double txPowerDbm = energyModel->GetTransmissionPower();
-
-//     uint32_t totalUes = 0, consideredUes = 0;
-//     for (uint32_t i = 0; i < NodeList::GetNNodes(); ++i)
-//     {
-//         Ptr<Node> ue = NodeList::GetNode(i);
-//         Ptr<NetDevice> dev = ue->GetDevice(0);
-//         Ptr<LteUeNetDevice> ueDev = DynamicCast<LteUeNetDevice>(dev);
-//         if (!ueDev) continue;
-
-//         totalUes++;
-
-//         Ptr<MobilityModel> ueMob = ue->GetObject<MobilityModel>();
-//         if (!ueMob) continue;
-
-//         double dist = ueMob->GetDistanceFrom(sbsMob);
-
-//         double sinrDb = CalculateSinr(
-//             ue, sbsNode, txPowerDbm, 3.5, *globalEnbDevs, false);
-
-//         if (std::isnan(sinrDb) || std::isinf(sinrDb)) {
-//             std::cout << now << "s: [WARNING] Invalid SINR for UE IMSI " << ueDev->GetImsi()
-//                       << " at distance " << dist << " m\n";
-//             continue;
-//         }
-
-//         consideredUes++;
-//         logFile << now << "," << label << "," << sbsNodeId << ","
-//                 << ueDev->GetImsi() << "," << dist << "," << sinrDb
-//                 << "," << txPowerDbm << "\n";
-//         logFile.flush();
-//     }
-
-//     if (Simulator::Now() + MilliSeconds(1) < endTime) {
-//         Simulator::Schedule(MilliSeconds(1), &LogSinrDuringTransition,
-//                             sbsNodeId, label, endTime);
-//     } else {
-//         std::cout << now << "s: End of transition window reached — stopping SINR logging.\n";
-//     }
-// }
-
-
 
 // === START OF RL ===
 
@@ -1312,10 +614,10 @@ LteGymEnv::LteGymEnv(const std::vector<Ptr<Node>>& sbsNodes,
 Ptr<OpenGymSpace> LteGymEnv::GetObservationSpace()
 {
     std::cout << "GetObservationSpace() called" << std::endl;
-    uint32_t dim = m_energyModels.size() * 5;  // 3 values per SBS
+    uint32_t dim = m_energyModels.size() * 5;  
     std::vector<uint32_t> shape = {dim};
     float low = 0.0;
-    float high = 100000.0;  // Adjust as needed
+    float high = 100000.0; 
     return CreateObject<OpenGymBoxSpace>(low, high, shape, "float32");
 }
 
@@ -1334,7 +636,7 @@ Ptr<OpenGymSpace> LteGymEnv::GetActionSpace()
 
     float low = 0;   // Minimum action value (ACTIVE)
     float high = 3;  // Maximum action value (SM3)
-    std::string dtype = TypeNameGet<float>(); // or "float32"
+    std::string dtype = TypeNameGet<float>();
 
     Ptr<OpenGymBoxSpace> space = CreateObject<OpenGymBoxSpace>(low, high, shape, dtype);
     return space;
@@ -1345,7 +647,7 @@ Ptr<OpenGymDataContainer> LteGymEnv::GetObservation()
 {
     std::cout << "GetObservation() called" << std::endl;
 
-    CollectEnvData();  // Collect fresh data every step
+    CollectEnvData();  
 
     std::vector<double> obs;
     for (const auto& [sbsId, model] : m_energyModels) {
@@ -1356,7 +658,6 @@ Ptr<OpenGymDataContainer> LteGymEnv::GetObservation()
         obs.push_back(model->IsTransitioning() ? 1.0 : 0.0);
     }
 
-    // Add global SINR as final part of observation:
    
 
     Ptr<OpenGymBoxContainer<double>> container = CreateObject<OpenGymBoxContainer<double>>(std::vector<uint32_t>{(uint32_t)obs.size()});
@@ -1458,106 +759,6 @@ double LteGymEnv::ScaleGlobalSinr(double sinrDb) {
         return 1.0;
 }
 
-// float LteGymEnv::GetReward()
-// {
-//     std::cout << "GetReward() called" << std::endl;
-
-//     float totalReward = 0.0;
-
-//     for (const auto& [sbsId, model] : m_energyModels)
-//     {
-//         // === ENERGY ===
-//         double power = model->GetTotalPowerConsumption();  // W
-//         double energyScore = -2.0 * power;  // increased energy penalty
-
-//         // === SINR ===
-//         double sinrDb = 0.0;
-//         if (sbsSinrAverage.count(sbsId)) {
-//             sinrDb = sbsSinrAverage[sbsId];
-//         }
-//         m_lastSbsSinrAverage[sbsId] = sinrDb; 
-//         double qosScore = 2.0 * sinrDb;  // reduced SINR reward
-
-//         // === SWITCHING COST ===
-//         SmallCellEnergyModel::SmallCellState currentState = model->GetState();
-//         SmallCellEnergyModel::SmallCellState previousState = m_lastStates[sbsId];
-//         double switchingPenalty = 0.0;
-
-//         if (currentState != previousState) {
-//             switchingPenalty = 0.5;  // safe exploration switching cost
-//         }
-
-//         double sbsReward = energyScore + qosScore - switchingPenalty;
-
-//         totalReward += sbsReward;
-
-//         // === UPDATE previous state for next step ===
-//         m_lastStates[sbsId] = currentState;
-
-//         // Debug print (optional)
-//         std::cout << "  [SBS " << sbsId << "] Power=" << power
-//                   << "W, SINR=" << sinrDb
-//                   << "dB, SwitchingPenalty=" << switchingPenalty
-//                   << ", Reward=" << sbsReward << std::endl;
-//     }
-
-//     // === Macro SINR contribution ===
-//     std::cout << "  [Macro BS] SINR = " << macroSinrAverage << " dB" << std::endl;
-//     m_lastAvgMacroSinr = macroSinrAverage;
-//     totalReward += 1.0 * macroSinrAverage;
-
-//     // Clear SINR buffer after use
-//     sbsSinrAverage.clear();
-//     macroSinrAverage = 0.0;  
-
-//     return totalReward;
-// }
-
-// float LteGymEnv::GetReward()
-// {
-//     std::cout << "GetReward() called" << std::endl;
-//     uint32_t numSbs = m_energyModels.size();  // count your SBS nodes
-//     std::cout << "number of BS" << numSbs << std::endl;
-//     const double raw_w_power = 0.4;
-//     const double w_power = raw_w_power / numSbs;  // normalized weight
-//     const double w_sinr = 0.7;
-//     const double switching_penalty_weight = 0.0001 / numSbs;
-
-
-//     float totalReward = 0.0;
-
-//     for (const auto& [sbsId, model] : m_energyModels)
-//     {
-//         double power = model->GetTotalPowerConsumption();
-//         double scaledPower = ScalePower(power);
-
-//         SmallCellEnergyModel::SmallCellState currentState = model->GetState();
-//         SmallCellEnergyModel::SmallCellState previousState = m_lastStates[sbsId];
-//         double switchingPenalty = (currentState != previousState) ? switching_penalty_weight : 0.0;
-
-//         double sbsReward = w_power * scaledPower - switchingPenalty;
-//         totalReward += sbsReward;
-
-//         m_lastStates[sbsId] = currentState;
-
-//         std::cout << "[SBS " << sbsId << "] Power=" << power 
-//                   << "W (scaled=" << scaledPower << "), Reward=" << sbsReward << std::endl;
-//     }
-
-//     double scaledGlobalSinr = ScaleGlobalSinr(m_globalAvgSINR);
-//     totalReward += w_sinr * scaledGlobalSinr;
-
-//     std::cout << "[Global Average SINR] " << m_globalAvgSINR;
-//             //   << " dB (scaled = " << scaledGlobalSinr << ")" << std::endl;
-
-//     if (m_globalAvgSINR < 0.0) {
-//         std::cout << "[Penalty] Global SINR below 0 dB. Heavy penalty applied.\n";
-//         totalReward -= 2.0;
-//     }
-
-//     return totalReward;
-// }
-
 
 float LteGymEnv::GetReward()
 {
@@ -1609,9 +810,6 @@ float LteGymEnv::GetReward()
     return totalReward;
 }
 
-
-
-
 bool LteGymEnv::ExecuteActions(Ptr<OpenGymDataContainer> action)
 {
     std::cout << "ExecuteActions() called" << std::endl;
@@ -1654,12 +852,10 @@ bool LteGymEnv::ExecuteActions(Ptr<OpenGymDataContainer> action)
     return true;
 }
  
-
-
 bool LteGymEnv::GetGameOver()
 {
     std::cout << "GetGameOver() called" << std::endl;
-    // End episode when simulation time is up (step-based)
+    
     double now = Simulator::Now().GetSeconds();
     return now >= m_simulationTime;
 }
@@ -1668,7 +864,7 @@ bool LteGymEnv::GetGameOver()
 std::string LteGymEnv::GetExtraInfo()
 {
     std::cout << "GetExtraInfo() called" << std::endl;
-    // === Total Energy ===
+
     double totalEnergy = 0.0;
     double totalPower = 0.0;
     for (const auto& [sbsId, model] : m_energyModels)
@@ -1677,11 +873,11 @@ std::string LteGymEnv::GetExtraInfo()
         totalPower += model->GetTotalPowerConsumption();
     }
 
-    // === Use directly the global SINR ===
+
     double globalSinr = m_globalAvgSINR;
     int activeUeCount = m_currentConnectedUeCount;
 
-    // === Pack into ExtraInfo string ===
+
     std::ostringstream oss;
     oss << "total_energy=" << totalEnergy
         << ";global_sinr=" << globalSinr
@@ -1705,10 +901,7 @@ void StepCallback(Ptr<OpenGymInterface> gymInterface, double stepTime, double si
         Simulator::Stop();
         return;
     }
-    // Optionally, print debug info:
-    // std::cout << "NS-3 RL Step at " << now << "s" << std::endl;
 
-    // Schedule the next step (always stepTime ahead)
     Simulator::Schedule(Seconds(stepTime), &StepCallback, gymInterface, stepTime, simulationTime);
 }
 
@@ -1718,10 +911,6 @@ void ScheduleNextStateRead(double envStepTime, Ptr<OpenGymInterface> openGym)
   Simulator::Schedule (Seconds(envStepTime), &ScheduleNextStateRead, envStepTime, openGym);
   openGym->NotifyCurrentState();
 }
-
-
-
-
 
 // === END OF RL ===
 
@@ -1741,7 +930,7 @@ int main(int argc, char *argv[])
 
     uint16_t numSmallCells = 3;
     uint16_t numUesPerCell = 10;
-    double simulationTime = 10; // seconds (should be double for step arithmetic)
+    double simulationTime = 10; // seconds 
     double stepTime = 0.01; // seconds
     double pathLossExponent = 3.5; // Path loss exponent for SINR calculation, 
     double sinrHysteresisDb = 2.0; // Minimum SINR improvement needed for handover (dB)
@@ -1898,7 +1087,7 @@ int main(int argc, char *argv[])
         energySource->SetInitialEnergy(1000.0);
         scNode->AggregateObject(energySource);
 
-        // Create and install your custom energy model
+        // Create and install energy model
         Ptr<SmallCellEnergyModel> scEnergyModel = CreateObject<SmallCellEnergyModel>();
         scEnergyModel->SetEnergySource(energySource);
         energySource->AppendDeviceEnergyModel(scEnergyModel);

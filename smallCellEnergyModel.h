@@ -11,7 +11,7 @@
 #include "ns3/simulator.h"
 #include <map>
 #include <string>
-#include <fstream>  // ✅ For CSV writing
+#include <fstream>  // For CSV writing
 
 namespace ns3 {
 
@@ -140,7 +140,7 @@ public:
             if (state == ACTIVE) {
                 m_activeEnteredTime = Simulator::Now();
             }
-            // ✅ Count state entry
+            // Count state entry
             // m_stateEntryCount[state]++;
         }
     }
@@ -150,7 +150,7 @@ public:
   {
       std::cout << Simulator::Now().GetSeconds() << "s: Finished transition, now ACTIVE." << std::endl;
 
-      // ✅ Energy update after activation delay completes
+      // Energy update after activation delay completes
       Time now = Simulator::Now();
       double duration = (now - m_lastStateChangeTime).GetSeconds();
       double energyUsed = m_totalPower * duration;
